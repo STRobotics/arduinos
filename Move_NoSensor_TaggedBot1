@@ -1,8 +1,31 @@
 #include <Wire.h>
+#include <L3G.h>
+#include <SharpIR.h>
+#include <SoftwareSerial.h>
 #include <Adafruit_MotorShield.h>
 #include "utility/Adafruit_PWMServoDriver.h"
 //#include "KEEL_Forward_Back.h"
 //Keel keelFB;
+
+#define DEVICE (0x53)                                      //Accelerometer address.
+#define TO_READ (6)
+
+L3G gyro;                                                  //Initialize gyro.
+
+int gx, gy, gz;
+
+SharpIR iRRangeLeft(A0, 25, 93, 1080);                     //Initialize IR sensors.
+SharpIR iRRangeCenter(A1, 25, 93, 1080);
+SharpIR iRRangeRight(A2, 25, 93, 1080);
+
+int iRValueLeft = 0;
+int iRValueCenter = 0;
+int iRValueRight = 0;
+
+int ax, ay, az;
+
+byte buff[TO_READ];
+char str[512];
 
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(); 
 
@@ -28,9 +51,23 @@ boolean obstacleStop = false;
 
 void setup() {
   
-  Serial.begin(9600);                                             // set up Serial library at 9600 bps
+  Wire.begin();
+  Serial.begin(9600);                                            // set up Serial library at 9600 bps
   //Serial.println("2wheels, will zig zag to keep forward");
   //keelFB = Keel();
+  
+  writeTo(DEVICE, 0x2D, 0);                                      //Accelerometer initialization.
+  writeTo(DEVICE, 0x2D, 16);
+  writeTo(DEVICE, 0x2D, 8);
+
+  if (!gyro.init())                                              //Gyro not detected.
+  {
+    Serial.println("Failed to autodetect gyro.");
+    while (1);
+  }
+  
+  gyro.enableDefault();
+  
   AFMS.begin();                                                  // create with the default frequency 1.6KHz
   //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
   
@@ -43,8 +80,25 @@ void setup() {
 void loop(){
 
 while(Serial.available() > 0){
+
+  int regAddress = 0x32;                                         //First axis-acceleration-data register.
   
- 
+  readFrom(DEVICE, regAddress, TO_READ, buff);                   //Read acceleration data.
+  
+  ax = (((int)buff[1]) << 8) | buff[0];                          //10 bit resolution, Least Significant Byte first.
+  ay = (((int)buff[3])<< 8) | buff[2];
+  az = (((int)buff[5]) << 8) | buff[4];
+  
+  gyro.read();                                                   //Read gyroscope data.
+  
+  gx = ((int)gyro.g.x);
+  gy = ((int)gyro.g.y);
+  gz = ((int)gyro.g.z);
+  
+  iRValueLeft = iRRangeLeft.distance();                          //Reads and stores range data.
+  iRValueCenter = iRRangeCenter.distance();
+  iRValueRight = iRRangeRight.distance();
+  
   int incTag = Serial.parseInt();
 
 
@@ -65,6 +119,8 @@ while(Serial.available() > 0){
 
 
 }
+
+//*************************************************   Functions   *****************************************************
 
 void moveForwardL(){
   if(incCode == 102){ //lowercase f
@@ -128,7 +184,6 @@ void TurnRight(){
   }
 }
 
-
 void CompleteStop(){
   if(incCode == 104){ // lowercase h
     uint8_t i = 255; // Used to lerp the braking motion
@@ -141,4 +196,107 @@ void CompleteStop(){
    rightMotor->run(RELEASE);
    leftMotor->run(RELEASE);
   }
+}
+
+void writeTo(int device, byte address, byte val)
+{
+  Wire.beginTransmission(device);    //start transmission to device 
+  Wire.write(address);               //send register address
+  Wire.write(val);                   //send value to write
+  Wire.endTransmission();            //end transmission
+}
+
+void readFrom(int device, byte address, int num, byte buff[])
+{
+  Wire.beginTransmission(device);    //start transmission to device 
+  Wire.write(address);               //address to read from
+  Wire.endTransmission();            //end transmission
+  Wire.beginTransmission(device);    //start transmission to device
+  Wire.requestFrom(device, num);     //request 6 bytes from device
+  
+  int i = 0;
+  while(Wire.available())            //device may send less than requested (abnormal)
+  { 
+    buff[i] = Wire.read();           // receive a byte
+    i++;
+  }
+  Wire.endTransmission();            //end transmission
+}
+
+void updateIMU(float gx, float gy, float gz, float ax, float ay, float az)
+{
+	float recipNorm;
+	float halfvx, halfvy, halfvz;
+	float halfex, halfey, halfez;
+	float qa, qb, qc;
+
+	// Compute feedback only if accelerometer measurement valid (avoids NaN in accelerometer normalisation)
+	if(!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f))) {
+
+		// Normalise accelerometer measurement
+		recipNorm = invSqrt(ax * ax + ay * ay + az * az);
+		ax *= recipNorm;
+		ay *= recipNorm;
+		az *= recipNorm;        
+
+		// Estimated direction of gravity and vector perpendicular to magnetic flux
+		halfvx = q1 * q3 - q0 * q2;
+		halfvy = q0 * q1 + q2 * q3;
+		halfvz = q0 * q0 - 0.5f + q3 * q3;
+	
+		// Error is sum of cross product between estimated and measured direction of gravity
+		halfex = (ay * halfvz - az * halfvy);
+		halfey = (az * halfvx - ax * halfvz);
+		halfez = (ax * halfvy - ay * halfvx);
+
+		// Compute and apply integral feedback if enabled
+		if(twoKi > 0.0f) {
+			integralFBx += twoKi * halfex * (1.0f / sampleFreq);	// integral error scaled by Ki
+			integralFBy += twoKi * halfey * (1.0f / sampleFreq);
+			integralFBz += twoKi * halfez * (1.0f / sampleFreq);
+			gx += integralFBx;	// apply integral feedback
+			gy += integralFBy;
+			gz += integralFBz;
+		}
+		else {
+			integralFBx = 0.0f;	// prevent integral windup
+			integralFBy = 0.0f;
+			integralFBz = 0.0f;
+		}
+
+		// Apply proportional feedback
+		gx += twoKp * halfex;
+		gy += twoKp * halfey;
+		gz += twoKp * halfez;
+	}
+	
+	// Integrate rate of change of quaternion
+	gx *= (0.5f * (1.0f / sampleFreq));		// pre-multiply common factors
+	gy *= (0.5f * (1.0f / sampleFreq));
+	gz *= (0.5f * (1.0f / sampleFreq));
+	qa = q0;
+	qb = q1;
+	qc = q2;
+	q0 += (-qb * gx - qc * gy - q3 * gz);
+	q1 += (qa * gx + qc * gz - q3 * gy);
+	q2 += (qa * gy - qb * gz + q3 * gx);
+	q3 += (qa * gz + qb * gy - qc * gx); 
+	
+	// Normalise quaternion
+	recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
+	q0 *= recipNorm;
+	q1 *= recipNorm;
+	q2 *= recipNorm;
+	q3 *= recipNorm;
+}
+
+float invSqrt(float x)
+{
+	float halfx = 0.5f * x;
+	float y = x;
+	long i = *(long*)&y;
+	i = 0x5f3759df - (i>>1);
+	y = *(float*)&i;
+	y = y * (1.5f - (halfx * y * y));
+	return y;
 }
