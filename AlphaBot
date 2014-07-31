@@ -1,0 +1,214 @@
+//===========================================================================================================//
+//===========================================================================================================//
+//===========================================================================================================//
+//===========================================================================================================//
+// VERSION HISTORY AND AUTHORSHIP
+// STR_BasicMove v1 written by Tyler van Vierssen
+// STR_BasicMove v2 additions by Austin Nathaniel: moveBackward, readSerialWord
+// STR_BasicMove_DistSensor v1 Tyler van Vierssen
+// 7/29/2014 STR_AlphaBot_v001
+// 7/31/2014 STR_AlphaBot "Alf" by Tyler van Vierssen (Uploading to GitHub)
+
+//===========================================================================================================//
+//===========================================================================================================//
+//===========================================================================================================//
+//===========================================================================================================//
+
+
+#include <Wire.h>
+#include <Adafruit_MotorShield.h>
+#include "utility/Adafruit_PWMServoDriver.h"
+Adafruit_MotorShield AFMS = Adafruit_MotorShield(); 
+Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);
+Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);
+
+//===========================================================================================================//
+#include <SharpIR.h>
+#define ir A3 //At the moment, Sensor is connected to Analog 3. THIS MAY CHANGE.
+#define model 20150 //Our sensor model is GP2Y0A02Y. This is the working distance range, apparently.
+
+SharpIR distFront(ir, 25, 93, model);
+// ir: the pin where your sensor is attached
+// 25: the number of readings the library will make before calculating a mean distance
+// 93: the difference between two consecutive measurements to be taken as valcom_id
+// model: an int that determines your sensor:  1080 for GP2Y0A21Y
+//                                            20150 for GP2Y0A02Y
+//                                            (working distance range according to the datasheets)
+//===========================================================================================================//
+
+
+String arduino_id = "alf";
+String incCommand, com_id, msg;
+
+
+//==================================================================================================//
+//==================================================================================================//
+//==================================================================================================//
+//==================================================================================================//
+
+void setup() {
+  
+  Serial.begin(9600);                                             // set up Serial library at 9600 bps
+  Serial.println("STR AlphaBot Initiating...");
+  AFMS.begin();                                                  // create with the default frequency 1.6KHz
+  //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
+  
+  
+  // Set the speed to start, from 0 (off) to 255 (max speed)
+  leftMotor->setSpeed(200);
+  rightMotor->setSpeed(200);
+  
+  pinMode(ir, INPUT);
+  Serial.println("Hi, my name is Alf!");
+  Serial.println("AlphaBot Starting in 3");
+  delay(1000);
+  Serial.println("AlphaBot Starting in 2");
+  delay(1000);
+  Serial.println("AlphaBot Starting in 1");
+  delay(1000);  
+  Serial.println("AlphaBot Initiated.");
+  delay(1000);
+}
+
+//==================================================================================================//
+//==================================================================================================//
+//==================================================================================================//
+//==================================================================================================//
+
+void loop(){
+  int bufferDist = distFront.distance();
+  //Serial.print("Mean distance: ");
+  //Serial.println(bufferDist);
+  //==================================================================================================//
+  if(Serial.available()){
+    incCommand = String("");
+    while(Serial.available()){
+      incCommand = incCommand + char(Serial.read());
+      delay(1);
+    }
+    parseData();
+    
+    //Serial.println(command);
+    Serial.print(com_id);
+    Serial.print("\t");
+    Serial.print(msg);
+    Serial.println("\t");
+  }
+  //==================================================================================================//
+    if(bufferDist <= 35 && bufferDist > 0){
+     // incCode = 104; //will initiate brake if too close to object
+     //Serial.print("steve,stop");
+     com_id = arduino_id;
+     msg = "stop";
+     Serial.println("Object too close! Braking!");
+    }
+    Halt();
+    
+    TurnLeft();
+    TurnRight();
+    moveForwardR();
+    
+    moveBackwardR();
+    
+    
+    TurnRight();
+    TurnLeft();
+    moveForwardL();
+    
+    moveBackwardL();
+        
+}
+
+//==================================================================================================//
+//==================================================================================================//
+//==================================================================================================//
+//==================================================================================================//
+
+void parseData(){
+  if (incCommand.indexOf(" ")>=0){
+    com_id = incCommand.substring(0,(incCommand.indexOf(" ")));
+    msg = incCommand.substring(incCommand.indexOf(" ")+1);
+  }
+  else{
+    com_id = "ERROR";
+    msg = "ERROR";
+  }
+}
+
+
+//==================================================================================================//
+//==================================================================================================//
+//==================================================================================================//
+//==================================================================================================//
+void moveForwardL(){
+  if(com_id == arduino_id && msg == "go" || msg == "forward" || msg == "move"){
+    // Serial.println("Moving Forward Left Tilt");
+     leftMotor->setSpeed(200);
+     rightMotor->setSpeed(200);
+     leftMotor ->run(BACKWARD); 
+     rightMotor->run(FORWARD);
+  }
+}
+
+void moveForwardR(){
+  if(com_id == arduino_id && msg == "go" || msg == "forward" || msg == "move"){ // lowercase f
+  //  Serial.println("Moving Forward Right Tilt");
+    leftMotor->setSpeed(200);
+    rightMotor->setSpeed(200);
+    rightMotor->run(FORWARD);
+    leftMotor ->run(BACKWARD);
+  }
+}
+
+void moveBackwardL(){
+  if(com_id == arduino_id && msg == "back"){ 
+    // Serial.println("Moving Backward Left Tilt");
+     leftMotor->setSpeed(200);
+     rightMotor->setSpeed(200);
+     leftMotor ->run(FORWARD); 
+     rightMotor->run(BACKWARD);
+  }
+}
+
+void moveBackwardR(){
+  if(com_id == arduino_id && msg == "back"){ 
+   // Serial.println("Moving Backward Right Tilt");
+    leftMotor->setSpeed(200);
+    rightMotor->setSpeed(200);
+    rightMotor->run(BACKWARD);
+    leftMotor ->run(FORWARD);
+  }
+}
+
+void TurnLeft(){
+  if(com_id == arduino_id && msg == "left"){ 
+   // Serial.println("turning Left");
+      leftMotor->setSpeed(200);
+      rightMotor->setSpeed(200);
+      leftMotor->run(FORWARD);
+      rightMotor->run(FORWARD);
+  }
+}
+
+void TurnRight(){
+  if(com_id == arduino_id && msg == "right"){ 
+  //  Serial.println("turning Right");
+      leftMotor->setSpeed(200);
+      rightMotor->setSpeed(200); 
+      rightMotor->run(BACKWARD);
+      leftMotor->run(BACKWARD);
+  }
+}
+
+void Halt(){
+  if(com_id == arduino_id && msg == "stop" || msg == "halt"){ 
+    uint8_t i = 255; // Used to lerp the braking motion
+    for(i=200; i!=0; i--){
+      leftMotor->setSpeed(i);
+      rightMotor->setSpeed(i);
+      delay(2); //increase or decrease this value to change the rate of braking
+    }
+   rightMotor->run(RELEASE);
+   leftMotor->run(RELEASE);
+  }
+}
