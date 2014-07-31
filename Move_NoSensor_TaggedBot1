@@ -1,0 +1,144 @@
+#include <Wire.h>
+#include <Adafruit_MotorShield.h>
+#include "utility/Adafruit_PWMServoDriver.h"
+//#include "KEEL_Forward_Back.h"
+//Keel keelFB;
+
+Adafruit_MotorShield AFMS = Adafruit_MotorShield(); 
+
+Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);
+Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);
+//int sensorDist;
+
+int incCode = 104;
+
+int robotTag = 1; // This robot's tag
+
+
+boolean obstacleStop = false;
+//boolean backingFromObs = false;
+
+//== incCODE KEY ==//
+// HALT 'h' ASCII 104
+// FORWARD 'f' ASCII 102
+// LEFT 'l' ASCII 108
+// RIGHT 'r' ASCII 114
+// BACKWARDS 'b' ASCII 98
+
+
+void setup() {
+  
+  Serial.begin(9600);                                             // set up Serial library at 9600 bps
+  //Serial.println("2wheels, will zig zag to keep forward");
+  //keelFB = Keel();
+  AFMS.begin();                                                  // create with the default frequency 1.6KHz
+  //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
+  
+  
+  // Set the speed to start, from 0 (off) to 255 (max speed)
+  leftMotor->setSpeed(200);
+  rightMotor->setSpeed(200);
+}
+
+void loop(){
+
+while(Serial.available() > 0){
+  
+ 
+  int incTag = Serial.parseInt();
+
+
+  incCode = Serial.parseInt();
+  
+  if(incTag == robotTag){
+    CompleteStop();
+    TurnLeft();
+    TurnRight();
+    moveForwardR();
+    moveBackwardR();
+    TurnRight();
+    TurnLeft();
+    moveForwardL();
+    moveBackwardL();
+  }
+}
+
+
+}
+
+void moveForwardL(){
+  if(incCode == 102){ //lowercase f
+    // Serial.println("Moving Forward Left Tilt");
+     leftMotor->setSpeed(200);
+     rightMotor->setSpeed(200);
+     leftMotor ->run(BACKWARD); 
+     rightMotor->run(FORWARD);
+  }
+}
+
+void moveForwardR(){
+  if(incCode == 102){ // lowercase f
+   // Serial.println("Moving Forward Right Tilt");
+    leftMotor->setSpeed(200);
+    rightMotor->setSpeed(200);
+    rightMotor->run(FORWARD);
+    leftMotor ->run(BACKWARD);
+  }
+}
+
+void moveBackwardL(){
+  if(incCode == 98){ //lowercase b
+     //Serial.println("Moving Backward Left Tilt");
+     leftMotor->setSpeed(200);
+     rightMotor->setSpeed(200);
+     leftMotor ->run(FORWARD); 
+     rightMotor->run(BACKWARD);
+  }
+}
+
+void moveBackwardR(){
+  if(incCode == 98){ // lowercase b
+    //Serial.println("Moving Backward Right Tilt");
+    leftMotor->setSpeed(200);
+    rightMotor->setSpeed(200);
+    rightMotor->run(BACKWARD);
+    leftMotor ->run(FORWARD);
+  }
+}
+
+void TurnLeft(){
+  if(incCode == 108){ //lowercase l
+    //Serial.println("turning Left");
+    //if (turnLeft == true){
+      leftMotor->setSpeed(150);
+      rightMotor->setSpeed(150);
+      leftMotor->run(FORWARD);
+      rightMotor->run(FORWARD);
+  }
+}
+
+void TurnRight(){
+  if(incCode == 114){ //lowercase r
+    //Serial.println("turning Right");
+  //  if (turnRight == true){
+      leftMotor->setSpeed(150);
+      rightMotor->setSpeed(150); 
+      rightMotor->run(BACKWARD);
+      leftMotor->run(BACKWARD);
+  }
+}
+
+
+void CompleteStop(){
+  if(incCode == 104){ // lowercase h
+    uint8_t i = 255; // Used to lerp the braking motion
+    //Serial.println("Braking");
+    for(i=255; i!=0; i--){
+      leftMotor->setSpeed(i);
+      rightMotor->setSpeed(i);
+      delay(2); //increase or decrease this value to change the rate of braking
+    }
+   rightMotor->run(RELEASE);
+   leftMotor->run(RELEASE);
+  }
+}
