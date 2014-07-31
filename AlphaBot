@@ -150,7 +150,7 @@ void moveForwardL(){
 }
 
 void moveForwardR(){
-  if((com_id == arduino_id && msg == "go") || (com_id == arduino_id && msg == "forward")){ // lowercase f
+  if((com_id == arduino_id && msg == "go") || (com_id == arduino_id && msg == "forward")){
   //  Serial.println("Moving Forward Right Tilt");
     leftMotor->setSpeed(200);
     rightMotor->setSpeed(200);
