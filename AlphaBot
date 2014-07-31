@@ -37,7 +37,7 @@ SharpIR distFront(ir, 25, 93, model);
 //===========================================================================================================//
 
 
-String arduino_id = "alf";
+String arduino_id = "1";
 String incCommand, com_id, msg, val;
 
 
