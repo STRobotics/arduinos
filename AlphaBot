@@ -140,7 +140,7 @@ void parseData(){
 //==================================================================================================//
 //==================================================================================================//
 void moveForwardL(){
-  if(com_id == arduino_id && msg == "go" || msg == "forward" || msg == "move"){
+  if((com_id == arduino_id && msg == "go") || (com_id == arduino_id && msg == "forward")){
     // Serial.println("Moving Forward Left Tilt");
      leftMotor->setSpeed(200);
      rightMotor->setSpeed(200);
@@ -150,7 +150,7 @@ void moveForwardL(){
 }
 
 void moveForwardR(){
-  if(com_id == arduino_id && msg == "go" || msg == "forward" || msg == "move"){ // lowercase f
+  if((com_id == arduino_id && msg == "go") || (com_id == arduino_id && msg == "forward")){ // lowercase f
   //  Serial.println("Moving Forward Right Tilt");
     leftMotor->setSpeed(200);
     rightMotor->setSpeed(200);
