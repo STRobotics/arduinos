@@ -96,8 +96,7 @@ void loop(){
   }
   //==================================================================================================//
     if(bufferDist <= 35 && bufferDist > 0){
-     // incCode = 104; //will initiate brake if too close to object
-     //Serial.print("steve,stop");
+     //will initiate brake if too close to object
      com_id = arduino_id;
      msg = "stop";
      Serial.println("Object too close! Braking!");
