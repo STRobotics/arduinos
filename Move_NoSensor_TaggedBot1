@@ -9,6 +9,9 @@
 
 #define DEVICE (0x53)                                      //Accelerometer address.
 #define TO_READ (6)
+#define sampleFreq   512.0f
+#define twoKpDef     (2.0f * 0.5f)
+#define twoKiDef     (2.0f * 0.0f)
 
 L3G gyro;                                                  //Initialize gyro.
 
@@ -26,6 +29,11 @@ int ax, ay, az;
 
 byte buff[TO_READ];
 char str[512];
+
+volatile float twoKP = twoKpDef;
+volatile float twoKi = twoKiDef;
+volatile float q0 = 1.0f, q1 = 0.0f, q2 = 0.0f, q3 = 0.0f;
+volatile float integralFBx = 0.0f, integralFBy = 0.0f, integralFBz = 0.0f;
 
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(); 
 
@@ -299,4 +307,25 @@ float invSqrt(float x)
 	y = *(float*)&i;
 	y = y * (1.5f - (halfx * y * y));
 	return y;
+}
+
+Vector3 Quaternion::GetForwardVector() const
+{
+    return Vector3( 2 * (q0 * q2 + q3 * q1), 
+                    2 * (q1 * q0 - q3 * q0),
+                    1 - 2 * (q0 * q0 + q1 * q1));
+}
+ 
+Vector3 Quaternion::GetUpVector() const
+{
+    return Vector3( 2 * (q0 * q1 - q3 * q2), 
+                    1 - 2 * (q0 * q0 + q2 * q2),
+                    2 * (q1 * q2 + q3 * q0));
+}
+ 
+Vector3 Quaternion::GetRightVector() const
+{
+    return Vector3( 1 - 2 * (q1 * q1 + q2 * q2),
+                    2 * (q0 * q1 + q3 * q2),
+                    2 * (q0 * q2 - q3 * q1));
 }
