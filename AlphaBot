@@ -8,7 +8,12 @@
 // STR_BasicMove_DistSensor v1 Tyler van Vierssen
 // 7/29/2014 STR_AlphaBot_v001
 // 7/31/2014 STR_AlphaBot "Alf" by Tyler van Vierssen (Uploading to GitHub)
-
+//---------------------//
+/* 8/5/2014 STR_AlphaBot
+ - Inertial Navigation system is super-buggy. We are ordering wheel encoders and will switch over to those to measure
+ distance travelled. We can still use the gyroscope to measure euler rotation (0 - 360), and will use it in conjunction with
+ the encoder to enable a grid-move through trigonometry.
+*/
 //===========================================================================================================//
 //===========================================================================================================//
 //===========================================================================================================//
@@ -16,54 +21,172 @@
 
 
 #include <Wire.h>
+#include <L3G.h>
+#include <SharpIR.h>
+#include <SoftwareSerial.h>
 #include <Adafruit_MotorShield.h>
 #include "utility/Adafruit_PWMServoDriver.h"
-Adafruit_MotorShield AFMS = Adafruit_MotorShield(); 
-Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);
-Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);
 
-//===========================================================================================================//
-#include <SharpIR.h>
-#define ir A3 //At the moment, Sensor is connected to Analog 3. THIS MAY CHANGE.
+
+//-----------------------INS Definitions---------------------------------------//
+#define DEVICE (0x53)                                      //Accelerometer address.
+#define TO_READ (6)
+#define sampleFreq   512.0f
+#define twoKpDef     (2.0f * 0.5f)
+#define twoKiDef     (2.0f * 0.0f)
+
+
+
+//-----------------------Distance (IR) Sensors -------------------------//
 #define model 20150 //Our sensor model is GP2Y0A02Y. This is the working distance range, apparently.
-
-SharpIR distFront(ir, 25, 93, model);
+//Sharp IR(ir, 25, 93, model)
 // ir: the pin where your sensor is attached
 // 25: the number of readings the library will make before calculating a mean distance
 // 93: the difference between two consecutive measurements to be taken as valcom_id
 // model: an int that determines your sensor:  1080 for GP2Y0A21Y
 //                                            20150 for GP2Y0A02Y
 //                                            (working distance range according to the datasheets)
-//===========================================================================================================//
 
 
-String arduino_id = "1";
-String incCommand, com_id, msg, val;
+//SharpIR iRRangeLeft(A0, 25, 93, model);                     //Initialize IR sensors.
+//SharpIR iRRangeCenter(A1, 25, 93, model);
+//SharpIR iRRangeRight(A2, 25, 93, model);
+SharpIR iRRangeCenter(A3, 25, 93, model); // This is the one for testing.
+
+int iRValueLeft = 0;
+int iRValueCenter = 0;
+int iRValueRight = 0;
 
 
+//-----------------------Gyro Noise Reduction-------------------------------------//
+int sampleNum = 3000;
+int dc_offset = 0;
+double noise = 0;
+
+unsigned long time;
+int sampleTime = 10;
+int rate;
+
+int prev_rate = 0;
+double anglez = 0;
+
+//-----------------------INS Variables-------------------------------------------//
+L3G gyro;                                                  //Initialize gyro.
+
+int gx, gy, gz; //Gyroscopes
+
+int ax, ay, az; //Accelerometers
+
+byte buff[TO_READ];
+char str[512];
+
+
+volatile float twoKp = twoKpDef;
+volatile float twoKi = twoKiDef;
+volatile float q0 = 1.0f, q1 = 0.0f, q2 = 0.0f, q3 = 0.0f;
+volatile float integralFBx = 0.0f, integralFBy = 0.0f, integralFBz = 0.0f;
+float FV1, FV2, FV3, UV1, UV2, UV3, RV1, RV2, RV3;
+
+
+
+//------------------------Motor Shield Initialization---------------------------//
+Adafruit_MotorShield AFMS = Adafruit_MotorShield(); 
+
+Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);
+Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);
+
+
+
+//-----------------------Robot Properties----------------------------//
+String arduino_id = "1"; // This robot's Name tag
+String incCommand, com_id, msg, val; //This will be used to parse instructions.
 
 int moveSpeed = 200;
 int moveState;
 
-//==================================================================================================//
-//==================================================================================================//
-//==================================================================================================//
-//==================================================================================================//
+boolean obstacleStop = false;
+
+
+//*************************************************   Setup       *****************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
 
 void setup() {
   
-  Serial.begin(9600);                                             // set up Serial library at 9600 bps
+  Wire.begin();
+  Serial.begin(115200);                                            // set up Serial library at 9600 bps
+  
+  
+  //-----------------------StartUp Initiation--------------------------//
   Serial.println("STR AlphaBot Initiating...");
+  Serial.println("Hi, my name is " + arduino_id + "!");
+  
+  
+  //---------------------------GYRO Noise Reduction-------------------------------------//
+  while (!gyro.init());
+  gyro.enableDefault();
+  
+  Serial.println("calibrating gyroscope...");
+  for(int n=0;n<sampleNum;n++){
+    gyro.read();
+    dc_offset+=(int)gyro.g.z;
+  }
+    
+  dc_offset=dc_offset/sampleNum;
+  
+  for(int n=0;n<sampleNum;n++){
+   gyro.read();
+   if((int)gyro.g.z-dc_offset>noise)
+   noise=(int)gyro.g.z-dc_offset;
+   else if((int)gyro.g.z-dc_offset<-noise)
+   noise=-(int)gyro.g.z-dc_offset;
+  }
+  noise=noise/100; //gyro returns hundredths of degrees/sec
+  
+  
+  //print dc offset and noise level
+  Serial.println();
+  Serial.print("DC Offset: ");
+  Serial.print(dc_offset);
+  
+  Serial.print("\tNoise Level: ");
+  Serial.print(noise);
+  Serial.println();
+  delay(1000);
+  
+  //-----------------------Distance (IR) Sensor-------------------------//
+  //These may need to change if the analog inputs change on the board.
+  //pinMode(A0, INPUT);
+  //pinMode(A1, INPUT);
+  //pinMode(A2, INPUT); // Setting up the analog inputs for powering the IR sensors.
+  pinMode(A3, INPUT);
+
+  //-----------------------INS--------------------------//
+  writeTo(DEVICE, 0x2D, 0);                                      //Accelerometer initialization.
+  writeTo(DEVICE, 0x2D, 16);
+  writeTo(DEVICE, 0x2D, 8);
+
+  if (!gyro.init())                                              //Gyro not detected.
+  {
+    Serial.println("Failed to autodetect gyro.");
+    while (1);
+  }
+  
+  gyro.enableDefault();
+
+  
+  //-----------------------Motor Shield--------------------------//
   AFMS.begin();                                                  // create with the default frequency 1.6KHz
   //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
   
   
   // Set the speed to start, from 0 (off) to 255 (max speed)
-  leftMotor->setSpeed(moveSpeed);
-  rightMotor->setSpeed(moveSpeed);
+  leftMotor->setSpeed(200);
+  rightMotor->setSpeed(200);
   
-  pinMode(ir, INPUT);
-  Serial.println("Hi, my name is Alf!");
+  
+  //-----------------------StartUp Countdown--------------------------//
   Serial.println("AlphaBot Starting in 3");
   delay(1000);
   Serial.println("AlphaBot Starting in 2");
@@ -71,66 +194,131 @@ void setup() {
   Serial.println("AlphaBot Starting in 1");
   delay(1000);  
   Serial.println("AlphaBot Initiated.");
-  delay(1000);
+  delay(500);
+  
 }
 
-//==================================================================================================//
-//==================================================================================================//
-//==================================================================================================//
-//==================================================================================================//
+//*************************************************   Main Loop   *****************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
+
 
 void loop(){
-  int bufferDist = distFront.distance();
-  //Serial.print("Mean distance: ");
-  //Serial.println(bufferDist);
-  //==================================================================================================//
-  if(Serial.available()){
-    incCommand = String("");
-    while(Serial.available()){
-      incCommand = incCommand + char(Serial.read());
-      delay(1);
-    }
-    parseData();
+  int objDistCenter = iRRangeCenter.distance();
+  //Serial.print("Mean Distance: ");
+  //Serial.println(objDistcenter);  // This is for testing the front distance sensor's readings when needed
+  
+    //-------------------INS-----------------------//
+    int regAddress = 0x32;                                         //First axis-acceleration-data register.
     
-    //Serial.println(command);
-    Serial.print(com_id);
-    Serial.print("\t");
-    Serial.print(msg);
-    Serial.print("\t");
-    if(msg == "speed"){
-      Serial.print(val);
+    readFrom(DEVICE, regAddress, TO_READ, buff);                   //Read acceleration data.
+    
+    ax = (((int)buff[1]) << 8) | buff[0];                          //10 bit resolution, Least Significant Byte first.
+    ay = (((int)buff[3])<< 8) - 27| buff[2];
+    az = (((int)buff[5]) << 8) - 159| buff[4];
+    
+    gyro.read();                                                   //Read gyroscope data.
+    
+    
+    //---------------------updated Gyro Stuff-------------------------//
+    //---------------------updated Gyro Stuff-------------------------//
+    //---------------------updated Gyro Stuff-------------------------//
+    
+     rate=((int)gyro.g.z-dc_offset)/100;
+ 
+     anglez += ((double)(prev_rate + rate) * sampleTime) / 2000;
+     
+     // remember the current speed for the next loop rate integration.
+     prev_rate = rate;
+     
+     // Keep our angle between 0-359 degrees
+     if (anglez < 0){
+       anglez += 360;
+     }
+     else if (anglez >= 360){
+       anglez -= 360;
+     }
+     
+     Serial.print("anglez: ");
+     Serial.print(anglez);
+     Serial.print("\trate: ");
+     Serial.print(rate);
+     
+     Serial.print("\t gz value: ");
+     Serial.print(gz);
+     Serial.println();
+     
+    //---------------------END updated Gyro Stuff-------------------------//
+    //---------------------END updated Gyro Stuff-------------------------//
+    //---------------------END updated Gyro Stuff-------------------------//
+    
+    
+    gx = ((int)gyro.g.x);
+    gy = ((int)gyro.g.y);
+    gz = ((int)gyro.g.z);
+    
+    //iRValueLeft = iRRangeLeft.distance();                          //Reads and stores range data.
+    iRValueCenter = iRRangeCenter.distance();
+    //iRValueRight = iRRangeRight.distance();
+    updateIMU( gx,  gy,  gz,  ax,  ay,  az);
+   /* Serial.print("Quaternion : ");
+    Serial.print((int)gx);
+    Serial.print(", ");
+    Serial.print((int)gy);
+    Serial.print(", ");
+    Serial.print((int)gz);
+    Serial.print(", ");
+   // Serial.println((float)q3);
+    Serial.println("");*/
+    
+  //-------------------Not ins-----------------------//
+    if(Serial.available() > 0){
+      incCommand = String("");
+      while(Serial.available()){
+        incCommand = incCommand + char(Serial.read());
+        delay(1);
+      }
+      parseData();
+      Serial.print(com_id);
+      Serial.print("\t");
+      Serial.print(msg);
+      Serial.print("\t");
+      if(msg == "speed"){
+        Serial.print(val);
+      }
+      Serial.println(" ");
     }
-    Serial.println(" ");
+  
+  
+  /*if(objDistCenter <= 35 && objDistCenter > 0){
+       //will initiate brake if too close to object
+       com_id = arduino_id;
+       msg = "stop";
+       Serial.println("Object too close! Braking!");
+    }*/
+    
+    
 
-        
-  }
-  //==================================================================================================//
-    if(bufferDist <= 35 && bufferDist > 0){
-     //will initiate brake if too close to object
-     com_id = arduino_id;
-     msg = "stop";
-     Serial.println("Object too close! Braking!");
-    }
-    
-
-    
     SpeedChange();    
     Halt();
-    
     TurnLeft();
     TurnRight();
     MoveForward();
     MoveBackward();
-    
+
 
 
 }
 
-//==================================================================================================//
-//==================================================================================================//
-//==================================================================================================//
-//==================================================================================================//
+//*************************************************   Functions   *****************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
 
+//-------------------Command Parsing-----------------------//
 void parseData(){
   if (incCommand.indexOf(" ")>=0){
     int leftbracket = incCommand.indexOf("(");
@@ -146,11 +334,7 @@ void parseData(){
   }
 }
 
-
-//==================================================================================================//
-//==================================================================================================//
-//==================================================================================================//
-//==================================================================================================//
+//-------------------Motor Functions-----------------------//
 void SpeedChange(){
   if((com_id == arduino_id && msg == "speed")){
     moveSpeed = val.toInt();
@@ -207,9 +391,10 @@ void TurnLeft(){
 
 
 void Halt(){
+  if(moveState != 5){
   if(com_id == arduino_id && msg == "stop" || msg == "halt"){ 
-    moveState = 0;
-    uint8_t i = 255; // Used to lerp the braking motion
+    moveState = 5;
+    uint8_t i = moveSpeed; // Used to lerp the braking motion
     for(i=moveSpeed; i!=0; i--){
       leftMotor->setSpeed(i);
       rightMotor->setSpeed(i);
@@ -218,4 +403,138 @@ void Halt(){
    rightMotor->run(RELEASE);
    leftMotor->run(RELEASE);
   }
+}
+}
+
+
+//-------------------------------------------------------//
+//-------------------------------------------------------//
+//-------------------INS Functions-----------------------//
+//-------------------------------------------------------//
+//-------------------------------------------------------//
+//-------------------------------------------------------//
+
+
+void writeTo(int device, byte address, byte val)
+{
+  Wire.beginTransmission(device);    //start transmission to device 
+  Wire.write(address);               //send register address
+  Wire.write(val);                   //send value to write
+  Wire.endTransmission();            //end transmission
+}
+
+void readFrom(int device, byte address, int num, byte buff[])
+{
+  Wire.beginTransmission(device);    //start transmission to device 
+  Wire.write(address);               //address to read from
+  Wire.endTransmission();            //end transmission
+  Wire.beginTransmission(device);    //start transmission to device
+  Wire.requestFrom(device, num);     //request 6 bytes from device
+  
+  int i = 0;
+  while(Wire.available())            //device may send less than requested (abnormal)
+  { 
+    buff[i] = Wire.read();           // receive a byte
+    i++;
+  }
+  Wire.endTransmission();            //end transmission
+}
+
+void updateIMU(float gx, float gy, float gz, float ax, float ay, float az)
+{
+	float recipNorm;
+	float halfvx, halfvy, halfvz;
+	float halfex, halfey, halfez;
+	float qa, qb, qc;
+
+	// Compute feedback only if accelerometer measurement valid (avoids NaN in accelerometer normalisation)
+	if(!((ax == 0.0f) && (ay == 0.0f) && (az == 0.0f))) {
+
+		// Normalise accelerometer measurement
+		recipNorm = invSqrt(ax * ax + ay * ay + az * az);
+		ax *= recipNorm;
+		ay *= recipNorm;
+		az *= recipNorm;        
+
+		// Estimated direction of gravity and vector perpendicular to magnetic flux
+		halfvx = q1 * q3 - q0 * q2;
+		halfvy = q0 * q1 + q2 * q3;
+		halfvz = q0 * q0 - 0.5f + q3 * q3;
+	
+		// Error is sum of cross product between estimated and measured direction of gravity
+		halfex = (ay * halfvz - az * halfvy);
+		halfey = (az * halfvx - ax * halfvz);
+		halfez = (ax * halfvy - ay * halfvx);
+
+		// Compute and apply integral feedback if enabled
+		if(twoKi > 0.0f) {
+			integralFBx += twoKi * halfex * (1.0f / sampleFreq);	// integral error scaled by Ki
+			integralFBy += twoKi * halfey * (1.0f / sampleFreq);
+			integralFBz += twoKi * halfez * (1.0f / sampleFreq);
+			gx += integralFBx;	// apply integral feedback
+			gy += integralFBy;
+			gz += integralFBz;
+		}
+		else {
+			integralFBx = 0.0f;	// prevent integral windup
+			integralFBy = 0.0f;
+			integralFBz = 0.0f;
+		}
+
+		// Apply proportional feedback
+		gx += twoKp * halfex;
+		gy += twoKp * halfey;
+		gz += twoKp * halfez;
+	}
+	
+	// Integrate rate of change of quaternion
+	gx *= (0.5f * (1.0f / sampleFreq));		// pre-multiply common factors
+	gy *= (0.5f * (1.0f / sampleFreq));
+	gz *= (0.5f * (1.0f / sampleFreq));
+	qa = q0;
+	qb = q1;
+	qc = q2;
+	q0 += (-qb * gx - qc * gy - q3 * gz);
+	q1 += (qa * gx + qc * gz - q3 * gy);
+	q2 += (qa * gy - qb * gz + q3 * gx);
+	q3 += (qa * gz + qb * gy - qc * gx); 
+	
+	// Normalise quaternion
+	recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
+	q0 *= recipNorm;
+	q1 *= recipNorm;
+	q2 *= recipNorm;
+	q3 *= recipNorm;
+}
+
+float invSqrt(float x)
+{
+	float halfx = 0.5f * x;
+	float y = x;
+	long i = *(long*)&y;
+	i = 0x5f3759df - (i>>1);
+	y = *(float*)&i;
+	y = y * (1.5f - (halfx * y * y));
+	return y;
+}
+
+void get_ForwardVector(float q0, float q1, float q2, float q3)
+{
+    FV1 = 2 * (q0 * q2 + q3 * q1);
+    FV2 = 2 * (q1 * q0 - q3 * q0);
+    FV3 = 1 - 2 * (q0 * q0 + q1 * q1);
+}
+ 
+void get_UpVector(float q0, float q1, float q2, float q3)
+{
+    UV1 = 2 * (q0 * q1 - q3 * q2);
+    UV2 = 1 - 2 * (q0 * q0 + q2 * q2);
+    UV3 = 2 * (q1 * q2 + q3 * q0);
+}
+ 
+void get_RightVector(float q0, float q1, float q2, float q3)
+{
+    RV1 = 1 - 2 * (q1 * q1 + q2 * q2);
+    RV2 = 2 * (q0 * q1 + q3 * q2);
+    RV3 = 2 * (q0 * q2 - q3 * q1);
 }
