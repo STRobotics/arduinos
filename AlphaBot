@@ -8,7 +8,7 @@
 // STR_BasicMove_DistSensor v1 Tyler van Vierssen
 // 7/29/2014 STR_AlphaBot_v001
 // 7/31/2014 STR_AlphaBot "Alf" by Tyler van Vierssen (Uploading to GitHub)
-//---------------------//
+//----------------------//
 /* 8/5/2014 STR_AlphaBot
  - Inertial Navigation system is super-buggy. We are ordering wheel encoders and will switch over to those to measure
  distance travelled. We can still use the gyroscope to measure euler rotation (0 - 360), and will use it in conjunction with
