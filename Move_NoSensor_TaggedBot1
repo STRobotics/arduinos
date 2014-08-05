@@ -30,10 +30,11 @@ int ax, ay, az;
 byte buff[TO_READ];
 char str[512];
 
-volatile float twoKP = twoKpDef;
+volatile float twoKp = twoKpDef;
 volatile float twoKi = twoKiDef;
 volatile float q0 = 1.0f, q1 = 0.0f, q2 = 0.0f, q3 = 0.0f;
 volatile float integralFBx = 0.0f, integralFBy = 0.0f, integralFBz = 0.0f;
+float FV1, FV2, FV3, UV1, UV2, UV3, RV1, RV2, RV3;
 
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(); 
 
@@ -309,23 +310,23 @@ float invSqrt(float x)
 	return y;
 }
 
-Vector3 Quaternion::GetForwardVector() const
+void get_ForwardVector(float q0, float q1, float q2, float q3)
 {
-    return Vector3( 2 * (q0 * q2 + q3 * q1), 
-                    2 * (q1 * q0 - q3 * q0),
-                    1 - 2 * (q0 * q0 + q1 * q1));
+    FV1 = 2 * (q0 * q2 + q3 * q1);
+    FV2 = 2 * (q1 * q0 - q3 * q0);
+    FV3 = 1 - 2 * (q0 * q0 + q1 * q1);
 }
  
-Vector3 Quaternion::GetUpVector() const
+void get_UpVector(float q0, float q1, float q2, float q3)
 {
-    return Vector3( 2 * (q0 * q1 - q3 * q2), 
-                    1 - 2 * (q0 * q0 + q2 * q2),
-                    2 * (q1 * q2 + q3 * q0));
+    UV1 = 2 * (q0 * q1 - q3 * q2);
+    UV2 = 1 - 2 * (q0 * q0 + q2 * q2);
+    UV3 = 2 * (q1 * q2 + q3 * q0);
 }
  
-Vector3 Quaternion::GetRightVector() const
+void get_RightVector(float q0, float q1, float q2, float q3)
 {
-    return Vector3( 1 - 2 * (q1 * q1 + q2 * q2),
-                    2 * (q0 * q1 + q3 * q2),
-                    2 * (q0 * q2 - q3 * q1));
+    RV1 = 1 - 2 * (q1 * q1 + q2 * q2);
+    RV2 = 2 * (q0 * q1 + q3 * q2);
+    RV3 = 2 * (q0 * q2 - q3 * q1);
 }
