@@ -88,7 +88,7 @@ void setup() {
 
 void loop(){
 
-while(Serial.available() > 0){
+{
 
   int regAddress = 0x32;                                         //First axis-acceleration-data register.
   
@@ -108,12 +108,24 @@ while(Serial.available() > 0){
   iRValueCenter = iRRangeCenter.distance();
   iRValueRight = iRRangeRight.distance();
   
-  int incTag = Serial.parseInt();
-
-
-  incCode = Serial.parseInt();
+  updateIMU(gx, gy, gz, ax, ay, az);
   
-  if(incTag == robotTag){
+  Serial.print("Quaternion: ");
+  Serial.print((float)q0);
+  Serial.print(", ");
+  Serial.print((float)q1);
+  Serial.print(", ");
+  Serial.print((float)q2);
+  Serial.print(", ");
+  Serial.println((float)q3);
+  
+  
+  //int incTag = Serial.parseInt();
+  
+  
+  //incCode = Serial.parseInt();
+  
+  /*if(incTag == robotTag){
     CompleteStop();
     TurnLeft();
     TurnRight();
@@ -123,7 +135,7 @@ while(Serial.available() > 0){
     TurnLeft();
     moveForwardL();
     moveBackwardL();
-  }
+  }*/
 }
 
 
@@ -131,7 +143,7 @@ while(Serial.available() > 0){
 
 //*************************************************   Functions   *****************************************************
 
-void moveForwardL(){
+/*void moveForwardL(){
   if(incCode == 102){ //lowercase f
     // Serial.println("Moving Forward Left Tilt");
      leftMotor->setSpeed(200);
@@ -206,7 +218,7 @@ void CompleteStop(){
    leftMotor->run(RELEASE);
   }
 }
-
+*/
 void writeTo(int device, byte address, byte val)
 {
   Wire.beginTransmission(device);    //start transmission to device 
@@ -232,6 +244,8 @@ void readFrom(int device, byte address, int num, byte buff[])
   Wire.endTransmission();            //end transmission
 }
 
+
+
 void updateIMU(float gx, float gy, float gz, float ax, float ay, float az)
 {
 	float recipNorm;
@@ -252,7 +266,7 @@ void updateIMU(float gx, float gy, float gz, float ax, float ay, float az)
 		halfvx = q1 * q3 - q0 * q2;
 		halfvy = q0 * q1 + q2 * q3;
 		halfvz = q0 * q0 - 0.5f + q3 * q3;
-	
+
 		// Error is sum of cross product between estimated and measured direction of gravity
 		halfex = (ay * halfvz - az * halfvy);
 		halfey = (az * halfvx - ax * halfvz);
@@ -278,7 +292,7 @@ void updateIMU(float gx, float gy, float gz, float ax, float ay, float az)
 		gy += twoKp * halfey;
 		gz += twoKp * halfez;
 	}
-	
+
 	// Integrate rate of change of quaternion
 	gx *= (0.5f * (1.0f / sampleFreq));		// pre-multiply common factors
 	gy *= (0.5f * (1.0f / sampleFreq));
@@ -290,8 +304,8 @@ void updateIMU(float gx, float gy, float gz, float ax, float ay, float az)
 	q1 += (qa * gx + qc * gz - q3 * gy);
 	q2 += (qa * gy - qb * gz + q3 * gx);
 	q3 += (qa * gz + qb * gy - qc * gx); 
-	
-	// Normalise quaternion
+
+	//Normalise quaternion
 	recipNorm = invSqrt(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
 	q0 *= recipNorm;
 	q1 *= recipNorm;
@@ -330,3 +344,4 @@ void get_RightVector(float q0, float q1, float q2, float q3)
     RV2 = 2 * (q0 * q1 + q3 * q2);
     RV3 = 2 * (q0 * q2 - q3 * q1);
 }
+
