@@ -127,6 +127,9 @@ void setup() {
   while (!gyro.init());
   gyro.enableDefault();
   
+  Serial.println("Please do not move the robot while its Gyroscope calibrates!");
+  Serial.println("Starting calibration...");
+  delay(500);
   Serial.println("calibrating gyroscope...");
   for(int n=0;n<sampleNum;n++){
     gyro.read();
