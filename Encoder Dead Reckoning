@@ -1,0 +1,54 @@
+volatile int encoderL = 0;
+volatile int encoderR = 0;
+double x = 0;
+double y = 0;
+double heading = 0;
+
+void setup()
+{
+  Serial.begin(9600);
+  attachInterrupt(0, leftCount, CHANGE);
+  attachInterrupt(1, rightCount, CHANGE);
+}
+
+void loop()
+{
+  heading = (2*pi*(wheelRadius/wheelGap)*((encoderL-encoderR)/ticksPerRotation));
+  
+  if (heading >= 360)
+  {
+    heading -= 360;
+  }
+  if (heading < 0)
+  {
+    heading += 360;
+  }
+  
+  x = (wheelRadius*cos(heading*(pi/180))*(encoderL+encoderR)*(pi/ticksPerRotation));
+  
+  y = (wheelRadius*sin(heading*(pi/180))*(encoderL+encoderR)*(pi/ticksPerRotation));
+}
+
+void leftCount()
+{
+  if (move = forward || move = right)
+  {
+    encoderL++;
+  }
+  if (move = backward || move = left)
+  {
+    encoderL--;
+  }
+}
+
+void rightCount()
+{
+  if (move = forward || move = left)
+  {
+    encoderR++;
+  }
+  if (move = backward || move = right)
+  {
+    encoderR--;
+  }
+}
