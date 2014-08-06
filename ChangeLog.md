@@ -13,3 +13,5 @@ arduinos
 // 08-03-2014, 15:18: Added functions to pull forward, up, and right vectors from the quaternion.
 
 // 08-05-2014, 09:36: Changed vector functions to return properly.
+
+// 08-06-2014, 19:48: Added encoder dead reckoning file.
