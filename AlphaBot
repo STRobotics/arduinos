@@ -19,7 +19,7 @@
 //===========================================================================================================//
 //===========================================================================================================//
 
-boolean initialized = false;
+
 
 #include <Wire.h>
 #include <L3G.h>
@@ -99,7 +99,8 @@ Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);
 
 
 //-----------------------Robot Properties----------------------------//
-String arduino_id = "1"; // This robot's Name tag
+boolean initialized = false;
+String ard_id = "1"; // This robot's Name tag
 String incCommand, com_id, msg, val; //This will be used to parse instructions.
 
 int moveSpeed = 200;
@@ -116,7 +117,10 @@ boolean obstacleStop = false;
 void setup() {
   Serial.begin(9600);                                            // set up Serial library at 9600 bps
   Serial.println("STR AlphaBot Initiating...");
-  Serial.println("Hi, my name is " + arduino_id + "!");
+  Serial.println("Hi, my name is " + ard_id + "!");
+  Serial.println("Proper Input format: [RobotID] [Command] [Value, if applicable]");
+  Serial.println("(Does not apply to global commands like 'start')");
+  Serial.println();
   Serial.println("Initialization required. Input 'start', 'begin', 'initialize', or 'StartUp'.");
 }
 
@@ -172,7 +176,7 @@ void loop(){
      else if (anglez >= 360){
        anglez -= 360;
      }
-     
+     /*
      Serial.print("anglez: ");
      Serial.print(anglez);
      Serial.print("\trate: ");
@@ -181,7 +185,7 @@ void loop(){
      Serial.print("\t gz value: ");
      Serial.print(gz);
      Serial.println();
-     
+     */
     //---------------------END updated Gyro Stuff-------------------------//
     //---------------------END updated Gyro Stuff-------------------------//
     //---------------------END updated Gyro Stuff-------------------------//
@@ -212,7 +216,7 @@ void loop(){
   
   /*if(objDistCenter <= 35 && objDistCenter > 0){
        //will initiate brake if too close to object
-       com_id = arduino_id;
+       com_id = ard_id;
        msg = "stop";
        Serial.println("Object too close! Braking!");
     }*/
@@ -225,7 +229,8 @@ void loop(){
     TurnRight();
     MoveForward();
     MoveBackward();
-
+    Reset();
+    Close();
 
 
 }
@@ -243,6 +248,8 @@ void StartUp(){
   
   //-----------------------StartUp Initiation--------------------------//
   Serial.println("StartUp() initialized...");
+  
+
   Wire.begin();
   Serial.println("Wire library initialized");
   //---------------------------GYRO Noise Reduction-------------------------------------//
@@ -330,8 +337,28 @@ void StartUp(){
 //*********************************************************************************************************************
 //*********************************************************************************************************************
 
+void Reset(){
+  if(incCommand == "reset"){
+    initialized = false;
+    Serial.println("Resetting...");
+    Serial.println();
+    Serial.println();
+    Serial.println();
+    Serial.println("STR AlphaBot Initiating...");
+    Serial.println("Hi, my name is " + ard_id + "!");
+    Serial.println("Initialization required. Input 'start', 'begin', 'initialize', or 'StartUp'.");
+  }
+}
 
-
+void Close(){
+  if(incCommand == "close"){
+    initialized = false;
+    Serial.println("Closing...");
+    Serial.println();
+    Serial.println();
+    Serial.println();
+  }
+}
 
 
 //-------------------Command Parsing-----------------------//
@@ -344,7 +371,8 @@ void ReadCommand(){
     }
    
     parseData();
-    if (incCommand == "begin" || incCommand == "start" || incCommand == "initialize" || incCommand == "StartUp"){
+    //Don't give error messages for the following single word commands:
+    if (incCommand == "begin" || incCommand == "start" || incCommand == "initialize" || incCommand == "StartUp"|| incCommand == "close" || incCommand == "reset"){
       return;
     }
     Serial.print(com_id);
@@ -371,6 +399,8 @@ void parseData(){
     com_id = "ERROR";
     msg = "ERROR";
     val = "0";
+    
+    //Don't give error messages for the following single word commands:
   }
 }
 
@@ -378,13 +408,13 @@ void parseData(){
 
 //-------------------Motor Functions-----------------------//
 void SpeedChange(){
-  if((com_id == arduino_id && msg == "speed")){
+  if((com_id == ard_id && msg == "speed")){
     moveSpeed = val.toInt();
   }
 }
 
 void MoveForward(){
-  if((com_id == arduino_id && msg == "go") || (com_id == arduino_id && msg == "forward")){
+  if((com_id == ard_id && msg == "go") || (com_id == ard_id && msg == "forward")){
     moveState = 1;
     // Serial.println("Moving Forward Left Tilt");
      leftMotor->setSpeed(moveSpeed);
@@ -397,7 +427,7 @@ void MoveForward(){
 
 
 void MoveBackward(){
-  if(com_id == arduino_id && msg == "back"){
+  if(com_id == ard_id && msg == "back"){
    moveState = 2; 
    // Serial.println("Moving Backward Right Tilt");
     leftMotor->setSpeed(moveSpeed);
@@ -409,7 +439,7 @@ void MoveBackward(){
 
 void TurnRight(){
   
-  if(com_id == arduino_id && msg == "right"){
+  if(com_id == ard_id && msg == "right"){
     moveState = 3;
   //  Serial.println("turning Right");
       leftMotor->setSpeed(moveSpeed);
@@ -420,7 +450,7 @@ void TurnRight(){
 }
 
 void TurnLeft(){
-  if(com_id == arduino_id && msg == "left"){
+  if(com_id == ard_id && msg == "left"){
     moveState = 4;
    // Serial.println("turning Left");
       leftMotor->setSpeed(moveSpeed);
@@ -434,7 +464,7 @@ void TurnLeft(){
 
 void Halt(){
   if(moveState != 5){
-  if(com_id == arduino_id && msg == "stop" || msg == "halt"){ 
+  if(com_id == ard_id && msg == "stop" || msg == "halt"){ 
     moveState = 5;
     uint8_t i = moveSpeed; // Used to lerp the braking motion
     for(i=moveSpeed; i!=0; i--){
