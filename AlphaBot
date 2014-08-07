@@ -354,6 +354,7 @@ void Close(){
   if(incCommand == "close"){
     initialized = false;
     Serial.println("Closing...");
+    Halt();
     Serial.println();
     Serial.println();
     Serial.println();
