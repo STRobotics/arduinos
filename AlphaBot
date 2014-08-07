@@ -115,7 +115,7 @@ boolean obstacleStop = false;
 void setup() {
   
   Wire.begin();
-  Serial.begin(115200);                                            // set up Serial library at 9600 bps
+  Serial.begin(9600);                                            // set up Serial library at 9600 bps
   
   
   //-----------------------StartUp Initiation--------------------------//
