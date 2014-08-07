@@ -13,7 +13,7 @@ void setup()
 
 void loop()
 {
-  heading = (2*pi*(wheelRadius/wheelGap)*((encoderL-encoderR)/ticksPerRotation));
+  heading = (2*pi*(0.0325/0.1)*((encoderL-encoderR)/16));
   
   if (heading >= 360)
   {
@@ -24,9 +24,9 @@ void loop()
     heading += 360;
   }
   
-  x = (wheelRadius*cos(heading*(pi/180))*(encoderL+encoderR)*(pi/ticksPerRotation));
+  x = (0.0325*cos(heading*(pi/180))*(encoderL+encoderR)*(pi/16));
   
-  y = (wheelRadius*sin(heading*(pi/180))*(encoderL+encoderR)*(pi/ticksPerRotation));
+  y = (0.0325*sin(heading*(pi/180))*(encoderL+encoderR)*(pi/16));
 }
 
 void leftCount()
