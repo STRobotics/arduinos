@@ -465,7 +465,7 @@ void TurnLeft(){
 
 void Halt(){
   if(moveState != 5){
-  if(com_id == ard_id && msg == "stop" || msg == "halt"){ 
+  if((com_id == ard_id && msg == "stop") || (com_id == ard_id && msg == "halt") || incCommand == "stop" || incCommand == "halt"){ 
     moveState = 5;
     uint8_t i = moveSpeed; // Used to lerp the braking motion
     for(i=moveSpeed; i!=0; i--){
