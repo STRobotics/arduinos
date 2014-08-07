@@ -19,6 +19,7 @@
 //===========================================================================================================//
 //===========================================================================================================//
 
+boolean initialized = false;
 
 #include <Wire.h>
 #include <L3G.h>
@@ -113,19 +114,141 @@ boolean obstacleStop = false;
 //*********************************************************************************************************************
 
 void setup() {
-  
-  Wire.begin();
   Serial.begin(9600);                                            // set up Serial library at 9600 bps
-  
-  
-  //-----------------------StartUp Initiation--------------------------//
   Serial.println("STR AlphaBot Initiating...");
   Serial.println("Hi, my name is " + arduino_id + "!");
+  Serial.println("Initialization required. Input 'start', 'begin', 'initialize', or 'StartUp'.");
+}
+
+//*************************************************   Main Loop   *****************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
+
+
+void loop(){
+  //-----------------Initialization check--------------//
+  while(!initialized){
+    ReadCommand();
+    if(incCommand == "start" || incCommand == "begin" || incCommand == "initialize" || incCommand == "StartUp"){
+      initialized = true;
+      StartUp();
+    }
+  }
+  //--------------------------------------------------//
   
   
+  int objDistCenter = iRRangeCenter.distance();
+  //Serial.print("Mean Distance: ");
+  //Serial.println(objDistcenter);  // This is for testing the front distance sensor's readings when needed
+  
+    //-------------------INS-----------------------//
+    int regAddress = 0x32;                                         //First axis-acceleration-data register.
+    
+    readFrom(DEVICE, regAddress, TO_READ, buff);                   //Read acceleration data.
+    
+    ax = (((int)buff[1]) << 8) | buff[0];                          //10 bit resolution, Least Significant Byte first.
+    ay = (((int)buff[3])<< 8) - 27| buff[2];
+    az = (((int)buff[5]) << 8) - 159| buff[4];
+    
+    gyro.read();                                                   //Read gyroscope data.
+    
+    
+    //---------------------updated Gyro Stuff-------------------------//
+    //---------------------updated Gyro Stuff-------------------------//
+    //---------------------updated Gyro Stuff-------------------------//
+    
+     rate=((int)gyro.g.z-dc_offset)/100;
+ 
+     anglez += ((double)(prev_rate + rate) * sampleTime) / 2000;
+     
+     // remember the current speed for the next loop rate integration.
+     prev_rate = rate;
+     
+     // Keep our angle between 0-359 degrees
+     if (anglez < 0){
+       anglez += 360;
+     }
+     else if (anglez >= 360){
+       anglez -= 360;
+     }
+     
+     Serial.print("anglez: ");
+     Serial.print(anglez);
+     Serial.print("\trate: ");
+     Serial.print(rate);
+     
+     Serial.print("\t gz value: ");
+     Serial.print(gz);
+     Serial.println();
+     
+    //---------------------END updated Gyro Stuff-------------------------//
+    //---------------------END updated Gyro Stuff-------------------------//
+    //---------------------END updated Gyro Stuff-------------------------//
+    
+    
+    gx = ((int)gyro.g.x);
+    gy = ((int)gyro.g.y);
+    gz = ((int)gyro.g.z);
+    
+    //iRValueLeft = iRRangeLeft.distance();                          //Reads and stores range data.
+    iRValueCenter = iRRangeCenter.distance();
+    //iRValueRight = iRRangeRight.distance();
+    updateIMU( gx,  gy,  gz,  ax,  ay,  az);
+   /* Serial.print("Quaternion : ");
+    Serial.print((int)gx);
+    Serial.print(", ");
+    Serial.print((int)gy);
+    Serial.print(", ");
+    Serial.print((int)gz);
+    Serial.print(", ");
+   // Serial.println((float)q3);
+    Serial.println("");*/
+    
+  //-------------------Not ins-----------------------//
+  
+  ReadCommand();
+
+  
+  /*if(objDistCenter <= 35 && objDistCenter > 0){
+       //will initiate brake if too close to object
+       com_id = arduino_id;
+       msg = "stop";
+       Serial.println("Object too close! Braking!");
+    }*/
+    
+    
+
+    SpeedChange();    
+    Halt();
+    TurnLeft();
+    TurnRight();
+    MoveForward();
+    MoveBackward();
+
+
+
+}
+
+
+
+
+//*************************************************   StartUp Routine   ***********************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
+//*********************************************************************************************************************
+void StartUp(){
+  
+  //-----------------------StartUp Initiation--------------------------//
+  Serial.println("StartUp() initialized...");
+  Wire.begin();
+  Serial.println("Wire library initialized");
   //---------------------------GYRO Noise Reduction-------------------------------------//
   while (!gyro.init());
   gyro.enableDefault();
+  Serial.println("Gyro default enabled");
   
   Serial.println("Please do not move the robot while its Gyroscope calibrates!");
   Serial.println("About to start calibration...");
@@ -200,120 +323,6 @@ void setup() {
   delay(500);
   
 }
-
-//*************************************************   Main Loop   *****************************************************
-//*********************************************************************************************************************
-//*********************************************************************************************************************
-//*********************************************************************************************************************
-
-
-void loop(){
-  int objDistCenter = iRRangeCenter.distance();
-  //Serial.print("Mean Distance: ");
-  //Serial.println(objDistcenter);  // This is for testing the front distance sensor's readings when needed
-  
-    //-------------------INS-----------------------//
-    int regAddress = 0x32;                                         //First axis-acceleration-data register.
-    
-    readFrom(DEVICE, regAddress, TO_READ, buff);                   //Read acceleration data.
-    
-    ax = (((int)buff[1]) << 8) | buff[0];                          //10 bit resolution, Least Significant Byte first.
-    ay = (((int)buff[3])<< 8) - 27| buff[2];
-    az = (((int)buff[5]) << 8) - 159| buff[4];
-    
-    gyro.read();                                                   //Read gyroscope data.
-    
-    
-    //---------------------updated Gyro Stuff-------------------------//
-    //---------------------updated Gyro Stuff-------------------------//
-    //---------------------updated Gyro Stuff-------------------------//
-    
-     rate=((int)gyro.g.z-dc_offset)/100;
- 
-     anglez += ((double)(prev_rate + rate) * sampleTime) / 2000;
-     
-     // remember the current speed for the next loop rate integration.
-     prev_rate = rate;
-     
-     // Keep our angle between 0-359 degrees
-     if (anglez < 0){
-       anglez += 360;
-     }
-     else if (anglez >= 360){
-       anglez -= 360;
-     }
-     
-     Serial.print("anglez: ");
-     Serial.print(anglez);
-     Serial.print("\trate: ");
-     Serial.print(rate);
-     
-     Serial.print("\t gz value: ");
-     Serial.print(gz);
-     Serial.println();
-     
-    //---------------------END updated Gyro Stuff-------------------------//
-    //---------------------END updated Gyro Stuff-------------------------//
-    //---------------------END updated Gyro Stuff-------------------------//
-    
-    
-    gx = ((int)gyro.g.x);
-    gy = ((int)gyro.g.y);
-    gz = ((int)gyro.g.z);
-    
-    //iRValueLeft = iRRangeLeft.distance();                          //Reads and stores range data.
-    iRValueCenter = iRRangeCenter.distance();
-    //iRValueRight = iRRangeRight.distance();
-    updateIMU( gx,  gy,  gz,  ax,  ay,  az);
-   /* Serial.print("Quaternion : ");
-    Serial.print((int)gx);
-    Serial.print(", ");
-    Serial.print((int)gy);
-    Serial.print(", ");
-    Serial.print((int)gz);
-    Serial.print(", ");
-   // Serial.println((float)q3);
-    Serial.println("");*/
-    
-  //-------------------Not ins-----------------------//
-    if(Serial.available() > 0){
-      incCommand = String("");
-      while(Serial.available()){
-        incCommand = incCommand + char(Serial.read());
-        delay(1);
-      }
-      parseData();
-      Serial.print(com_id);
-      Serial.print("\t");
-      Serial.print(msg);
-      Serial.print("\t");
-      if(msg == "speed"){
-        Serial.print(val);
-      }
-      Serial.println(" ");
-    }
-  
-  
-  /*if(objDistCenter <= 35 && objDistCenter > 0){
-       //will initiate brake if too close to object
-       com_id = arduino_id;
-       msg = "stop";
-       Serial.println("Object too close! Braking!");
-    }*/
-    
-    
-
-    SpeedChange();    
-    Halt();
-    TurnLeft();
-    TurnRight();
-    MoveForward();
-    MoveBackward();
-
-
-
-}
-
 //*************************************************   Functions   *****************************************************
 //*********************************************************************************************************************
 //*********************************************************************************************************************
@@ -321,7 +330,34 @@ void loop(){
 //*********************************************************************************************************************
 //*********************************************************************************************************************
 
+
+
+
+
 //-------------------Command Parsing-----------------------//
+void ReadCommand(){
+    if(Serial.available() > 0){
+    incCommand = String("");
+    while(Serial.available()){
+      incCommand = incCommand + char(Serial.read());
+      delay(1);
+    }
+   
+    parseData();
+    if (incCommand == "begin" || incCommand == "start" || incCommand == "initialize" || incCommand == "StartUp"){
+      return;
+    }
+    Serial.print(com_id);
+    Serial.print("\t");
+    Serial.print(msg);
+    Serial.print("\t");
+    if(msg == "speed"){
+      Serial.print(val);
+    }
+    Serial.println(" ");
+  }
+}
+
 void parseData(){
   if (incCommand.indexOf(" ")>=0){
     int leftbracket = incCommand.indexOf("(");
@@ -330,12 +366,15 @@ void parseData(){
     msg = incCommand.substring(incCommand.indexOf(" ")+1,leftbracket);
     val = incCommand.substring(leftbracket+1,rightbracket);
   }
+
   else{
     com_id = "ERROR";
     msg = "ERROR";
     val = "0";
   }
 }
+
+
 
 //-------------------Motor Functions-----------------------//
 void SpeedChange(){
