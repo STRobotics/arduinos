@@ -26,16 +26,19 @@
 #include <SharpIR.h>
 #include <SoftwareSerial.h>
 #include <Adafruit_MotorShield.h>
+#include <Adafruit_Sensor.h>			//New Library - Must be downloaded
+#include <Adafruit_ADXL345_U.h>			//New Library - Must be downloaded
 #include "utility/Adafruit_PWMServoDriver.h"
 
 
 //-----------------------INS Definitions---------------------------------------//
-#define DEVICE (0x53)                                      //Accelerometer address.
-#define TO_READ (6)
-#define sampleFreq   512.0f
-#define twoKpDef     (2.0f * 0.5f)
-#define twoKiDef     (2.0f * 0.0f)
 
+
+//***********************BEGIN ORIENTATION INFORMATION*******************************//
+//Robot axis:            X+ is forward, X- is backward, Y+ is right, Y- is left, Z+ is up, Z- is down
+//Accelerometer axis:    X+ is forward, X- is backward, Y- is right, Y+ is left, Z+ is up, Z- is down
+//Gyroscope axis (tilt): X- is forward, X+ is backward, Y- is right, Y+ is left, Z- is counterclockwise, Z+ is clockwise
+//************************END ORIENTATION INFORMATION*******************************//
 
 
 //-----------------------Distance (IR) Sensors -------------------------//
@@ -58,6 +61,11 @@ int iRValueLeft = 0;
 int iRValueCenter = 0;
 int iRValueRight = 0;
 
+//-----------------------Accelerometer Low Pass Filter----------------------------//
+
+double fXg = 0;
+double fYg = 0;
+double fZg = 0;
 
 //-----------------------Gyro Noise Reduction-------------------------------------//
 int sampleNum = 3000;
@@ -66,21 +74,26 @@ double noise = 0;
 
 unsigned long time;
 int sampleTime = 10;
-int rate;
+int ratex, ratey, ratez;
 
-int prev_rate = 0;
+int prev_ratex = 0;
+int prev_ratey = 0;
+int prev_ratez = 0;
+double anglex = 0;
+double angley = 0;
 double anglez = 0;
 
 //-----------------------INS Variables-------------------------------------------//
 L3G gyro;                                                  //Initialize gyro.
 
-int gx, gy, gz; //Gyroscopes
+double gx, gy, gz; 					   //Gyroscope, in degrees.
 
-int ax, ay, az; //Accelerometers
+Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
+double ax, ay, az; 					   //Accelerometer, in meters per second.
 
-byte buff[TO_READ];
-char str[512];
-
+#define sampleFreq   512.0f
+#define twoKpDef     (2.0f * 0.5f)
+#define twoKiDef     (2.0f * 0.0f)
 
 volatile float twoKp = twoKpDef;
 volatile float twoKi = twoKiDef;
@@ -98,7 +111,7 @@ Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);
 
 
 
-//-----------------------Robot Properties----------------------------//
+//------------------------Robot Properties----------------------------//
 boolean initialized = false;
 String ard_id = "1"; // This robot's Name tag
 String incCommand, com_id, msg, val; //This will be used to parse instructions.
@@ -147,13 +160,17 @@ void loop(){
   //Serial.println(objDistcenter);  // This is for testing the front distance sensor's readings when needed
   
     //-------------------INS-----------------------//
-    int regAddress = 0x32;                                         //First axis-acceleration-data register.
     
-    readFrom(DEVICE, regAddress, TO_READ, buff);                   //Read acceleration data.
+    sensors_event_t event; 					   //Read accelerometer data.
+    accel.getEvent(&event);
     
-    ax = (((int)buff[1]) << 8) | buff[0];                          //10 bit resolution, Least Significant Byte first.
-    ay = (((int)buff[3])<< 8) - 27| buff[2];
-    az = (((int)buff[5]) << 8) - 159| buff[4];
+    fXg = event.acceleration.x * 0.5 + (fXg * 0.5);
+    fYg = event.acceleration.y * 0.5 + (fYg * 0.5);
+    fZg = event.acceleration.z * 0.5 + (fZg * 0.5);
+    
+    ax = fXg;
+    ay = fYg;
+    az = fZg;
     
     gyro.read();                                                   //Read gyroscope data.
     
@@ -162,14 +179,32 @@ void loop(){
     //---------------------updated Gyro Stuff-------------------------//
     //---------------------updated Gyro Stuff-------------------------//
     
-     rate=((int)gyro.g.z-dc_offset)/100;
+     ratex = ((int)gyro.g.x-dc_offset)/100;
+     ratey = ((int)gyro.g.y-dc_offset)/100;
+     ratez = ((int)gyro.g.z-dc_offset)/100;
  
-     anglez += ((double)(prev_rate + rate) * sampleTime) / 2000;
+     anglex += ((double)(prev_ratex + ratex) * sampleTime) / 2000;
+     angley += ((double)(prev_ratey + ratey) * sampleTime) / 2000;
+     anglez += ((double)(prev_ratez + ratez) * sampleTime) / 2000;
      
      // remember the current speed for the next loop rate integration.
-     prev_rate = rate;
+     prev_ratex = ratex;
+     prev_ratey = ratey;
+     prev_ratez = ratez;
      
      // Keep our angle between 0-359 degrees
+     if (anglex < 0){
+       anglex += 360;
+     }
+     else if (anglex >= 360){
+       anglex -= 360;
+     }
+     if (angley < 0){
+       angley += 360;
+     }
+     else if (angley >= 360){
+       angley -= 360;
+     }
      if (anglez < 0){
        anglez += 360;
      }
@@ -191,9 +226,9 @@ void loop(){
     //---------------------END updated Gyro Stuff-------------------------//
     
     
-    gx = ((int)gyro.g.x);
-    gy = ((int)gyro.g.y);
-    gz = ((int)gyro.g.z);
+    gx = anglex;
+    gy = angley;
+    gz = anglez;
     
     //iRValueLeft = iRRangeLeft.distance();                          //Reads and stores range data.
     iRValueCenter = iRRangeCenter.distance();
@@ -296,9 +331,6 @@ void StartUp(){
   pinMode(A3, INPUT);
 
   //-----------------------INS--------------------------//
-  writeTo(DEVICE, 0x2D, 0);                                      //Accelerometer initialization.
-  writeTo(DEVICE, 0x2D, 16);
-  writeTo(DEVICE, 0x2D, 8);
 
   if (!gyro.init())                                              //Gyro not detected.
   {
@@ -307,7 +339,14 @@ void StartUp(){
   }
   
   gyro.enableDefault();
+  
+  if(!accel.begin())
+  {
+    Serial.println("Failed to autodetect accelerometer.");	//Accelerometer not detected.
+    while(1);
+  }
 
+  accel.setRange(ADXL345_RANGE_16_G);
   
   //-----------------------Motor Shield--------------------------//
   AFMS.begin();                                                  // create with the default frequency 1.6KHz
@@ -487,31 +526,6 @@ void Halt(){
 //-------------------------------------------------------//
 //-------------------------------------------------------//
 
-
-void writeTo(int device, byte address, byte val)
-{
-  Wire.beginTransmission(device);    //start transmission to device 
-  Wire.write(address);               //send register address
-  Wire.write(val);                   //send value to write
-  Wire.endTransmission();            //end transmission
-}
-
-void readFrom(int device, byte address, int num, byte buff[])
-{
-  Wire.beginTransmission(device);    //start transmission to device 
-  Wire.write(address);               //address to read from
-  Wire.endTransmission();            //end transmission
-  Wire.beginTransmission(device);    //start transmission to device
-  Wire.requestFrom(device, num);     //request 6 bytes from device
-  
-  int i = 0;
-  while(Wire.available())            //device may send less than requested (abnormal)
-  { 
-    buff[i] = Wire.read();           // receive a byte
-    i++;
-  }
-  Wire.endTransmission();            //end transmission
-}
 
 void updateIMU(float gx, float gy, float gz, float ax, float ay, float az)
 {
