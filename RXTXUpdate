@@ -14,11 +14,16 @@ serialPort.enableReceiveThreshold(1);
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.Writer;
+import java.io.OutputStreamWriter;
+
 import gnu.io.CommPortIdentifier; 
 import gnu.io.SerialPort;
 import gnu.io.SerialPortEvent; 
 import gnu.io.SerialPortEventListener; 
 import java.util.Enumeration;
+
+
 
 
 public class SerialTest implements SerialPortEventListener {
@@ -122,6 +127,14 @@ public class SerialTest implements SerialPortEventListener {
 	}
 
 	public static void main(String[] args) throws Exception {
+            
+                //Short is used to send bytes of data. Split into upper and lower bytes
+                // byte upper and lower used to split the data and sent off to Arduino
+                // Commented out for errors, must uncomment output lines and byteupperlower lines
+                short x = 1200;
+                //byte upper = (byte) (x >> 8); //Get the upper 8 bits
+                //byte lower = (byte) (x & 0xFF); //Get the lower 8bits
+            
 		SerialTest main = new SerialTest();
 		main.initialize();
 		Thread t=new Thread() {
@@ -133,11 +146,17 @@ public class SerialTest implements SerialPortEventListener {
 		};
 		t.start();
 		System.out.println("Started");
+                
+                // Code Below To Output To Arduino - Has Syntax errors, Uncomment to Explore                
+                // Writer = new OutputStreamWriter(upper);
+                // new OutputStreamWriter(lower);
 	}
 }
 
 //=======                 Arduino Code Below                     =======
 //======= Simple code that prints stuff out from Arduino to Java =======
+
+int incomingByte = 0;
 
 void setup(){
   Serial.begin(9600);
@@ -145,5 +164,15 @@ void setup(){
 
 void loop(){
   Serial.println("This is Arduino, Hello Java!");
+  // send data only when you receive data:
+      if (Serial.available() > 0) {
+              // read the incoming byte:
+              incomingByte = Serial.read();
+
+              // say what you got:
+              Serial.print("I received: ");
+              Serial.println(incomingByte, DEC);
+        }
+  
   delay(1000);
 }
