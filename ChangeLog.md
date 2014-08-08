@@ -15,3 +15,8 @@ arduinos
 // 08-05-2014, 09:36: Changed vector functions to return properly.
 
 // 08-06-2014, 19:48: Added encoder dead reckoning file.
+
+// 08-08-2014, 15:35: Applied gyroscope filtering on all three axis, normalized and filtered all three accelerometer axis.
+                      Gyroscope returns degrees on all three axis, while accelerometer returns m/s on all three axis.
+                     *IMPORTANT: Two libraries must be downloaded, the Adafruit Sensor.h, and the Adafruit ADXL345 U.h.
+
