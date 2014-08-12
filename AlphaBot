@@ -26,20 +26,21 @@
 #include <SharpIR.h>
 #include <SoftwareSerial.h>
 #include <Adafruit_MotorShield.h>
+#include "utility/Adafruit_PWMServoDriver.h"
 #include <Adafruit_Sensor.h>			//New Library - Must be downloaded
 #include <Adafruit_ADXL345_U.h>			//New Library - Must be downloaded
-#include "utility/Adafruit_PWMServoDriver.h"
-
 
 //-----------------------INS Definitions---------------------------------------//
-
-
 //***********************BEGIN ORIENTATION INFORMATION*******************************//
 //Robot axis:            X+ is forward, X- is backward, Y+ is right, Y- is left, Z+ is up, Z- is down
 //Accelerometer axis:    X+ is forward, X- is backward, Y- is right, Y+ is left, Z+ is up, Z- is down
 //Gyroscope axis (tilt): X- is forward, X+ is backward, Y- is right, Y+ is left, Z- is counterclockwise, Z+ is clockwise
 //************************END ORIENTATION INFORMATION*******************************//
 
+//-----------------------Accelerometer Low Pass Filter----------------------------//
+double fXg = 0;
+double fYg = 0;
+double fZg = 0;
 
 //-----------------------Distance (IR) Sensors -------------------------//
 #define model 20150 //Our sensor model is GP2Y0A02Y. This is the working distance range, apparently.
@@ -61,11 +62,6 @@ int iRValueLeft = 0;
 int iRValueCenter = 0;
 int iRValueRight = 0;
 
-//-----------------------Accelerometer Low Pass Filter----------------------------//
-
-double fXg = 0;
-double fYg = 0;
-double fZg = 0;
 
 //-----------------------Gyro Noise Reduction-------------------------------------//
 int sampleNum = 3000;
@@ -74,6 +70,7 @@ double noise = 0;
 
 unsigned long time;
 int sampleTime = 10;
+
 int ratex, ratey, ratez;
 
 int prev_ratex = 0;
@@ -90,10 +87,11 @@ double gx, gy, gz; 					   //Gyroscope, in degrees.
 
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 double ax, ay, az; 					   //Accelerometer, in meters per second.
-
+ 
 #define sampleFreq   512.0f
 #define twoKpDef     (2.0f * 0.5f)
 #define twoKiDef     (2.0f * 0.0f)
+
 
 volatile float twoKp = twoKpDef;
 volatile float twoKi = twoKiDef;
@@ -111,8 +109,9 @@ Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);
 
 
 
-//------------------------Robot Properties----------------------------//
+//-----------------------Robot Properties----------------------------//
 boolean initialized = false;
+boolean booted = false;
 String ard_id = "1"; // This robot's Name tag
 String incCommand, com_id, msg, val; //This will be used to parse instructions.
 
@@ -129,12 +128,7 @@ boolean obstacleStop = false;
 
 void setup() {
   Serial.begin(9600);                                            // set up Serial library at 9600 bps
-  Serial.println("STR AlphaBot Initiating...");
-  Serial.println("Hi, my name is " + ard_id + "!");
-  Serial.println("Proper Input format: [RobotID] [Command] [Value, if applicable]");
-  Serial.println("(Does not apply to global commands like 'start')");
-  Serial.println();
-  Serial.println("Initialization required. Input 'start', 'begin', 'initialize', or 'StartUp'.");
+
 }
 
 //*************************************************   Main Loop   *****************************************************
@@ -145,7 +139,18 @@ void setup() {
 
 void loop(){
   //-----------------Initialization check--------------//
+
+  
   while(!initialized){
+    while(!booted){
+      Serial.println("STR AlphaBot Initiating...");
+      Serial.println("Hi, my name is " + ard_id + "!");
+      Serial.println("Proper Input format: [RobotID] [Command] [Value, if applicable]");
+      Serial.println("(Does not apply to global commands like 'start')");
+      Serial.println();
+      Serial.println("Initialization required. Input 'start', 'begin', 'initialize', or 'StartUp'.");
+      booted = true;
+    }
     ReadCommand();
     if(incCommand == "start" || incCommand == "begin" || incCommand == "initialize" || incCommand == "StartUp"){
       initialized = true;
@@ -160,10 +165,9 @@ void loop(){
   //Serial.println(objDistcenter);  // This is for testing the front distance sensor's readings when needed
   
     //-------------------INS-----------------------//
-    
     sensors_event_t event; 					   //Read accelerometer data.
     accel.getEvent(&event);
-    
+   
     fXg = event.acceleration.x * 0.5 + (fXg * 0.5);
     fYg = event.acceleration.y * 0.5 + (fYg * 0.5);
     fZg = event.acceleration.z * 0.5 + (fZg * 0.5);
@@ -193,34 +197,21 @@ void loop(){
      prev_ratez = ratez;
      
      // Keep our angle between 0-359 degrees
-     if (anglex < 0){
-       anglex += 360;
-     }
-     else if (anglex >= 360){
-       anglex -= 360;
-     }
-     if (angley < 0){
-       angley += 360;
-     }
-     else if (angley >= 360){
-       angley -= 360;
-     }
-     if (anglez < 0){
-       anglez += 360;
-     }
-     else if (anglez >= 360){
-       anglez -= 360;
-     }
-     /*
-     Serial.print("anglez: ");
-     Serial.print(anglez);
-     Serial.print("\trate: ");
-     Serial.print(rate);
-     
-     Serial.print("\t gz value: ");
-     Serial.print(gz);
-     Serial.println();
-     */
+       if (anglex < 0){
+         anglex += 360;
+       }
+       else if (anglex >= 360){
+         anglex -= 360;
+       }
+       if (angley < 0){
+         angley += 360;
+       }
+       else if (angley >= 360){
+         angley -= 360;
+       }
+       if (anglez < 0){
+          anglez += 360;
+       }
     //---------------------END updated Gyro Stuff-------------------------//
     //---------------------END updated Gyro Stuff-------------------------//
     //---------------------END updated Gyro Stuff-------------------------//
@@ -291,7 +282,7 @@ void StartUp(){
   while (!gyro.init());
   gyro.enableDefault();
   Serial.println("Gyro default enabled");
-  
+  Serial.println();
   Serial.println("Please do not move the robot while its Gyroscope calibrates!");
   Serial.println("About to start calibration...");
   delay(3000);
@@ -339,13 +330,13 @@ void StartUp(){
   }
   
   gyro.enableDefault();
-  
+
   if(!accel.begin())
   {
     Serial.println("Failed to autodetect accelerometer.");	//Accelerometer not detected.
     while(1);
   }
-
+ 
   accel.setRange(ADXL345_RANGE_16_G);
   
   //-----------------------Motor Shield--------------------------//
@@ -378,19 +369,22 @@ void StartUp(){
 
 void Reset(){
   if(incCommand == "reset"){
+    Serial.println();
+    booted = false;
     initialized = false;
-    Serial.println("Resetting...");
+    /*Serial.println("Resetting...");
     Serial.println();
     Serial.println();
     Serial.println();
     Serial.println("STR AlphaBot Initiating...");
     Serial.println("Hi, my name is " + ard_id + "!");
-    Serial.println("Initialization required. Input 'start', 'begin', 'initialize', or 'StartUp'.");
+    Serial.println("Initialization required. Input 'start', 'begin', 'initialize', or 'StartUp'.");*/
   }
 }
 
 void Close(){
   if(incCommand == "close"){
+    booted = false;
     initialized = false;
     Serial.println("Closing...");
     Halt();
@@ -415,6 +409,8 @@ void ReadCommand(){
     if (incCommand == "begin" || incCommand == "start" || incCommand == "initialize" || incCommand == "StartUp"|| incCommand == "close" || incCommand == "reset"){
       return;
     }
+    
+    Serial.print("Data Parsed: ");
     Serial.print(com_id);
     Serial.print("\t");
     Serial.print(msg);
@@ -525,8 +521,6 @@ void Halt(){
 //-------------------------------------------------------//
 //-------------------------------------------------------//
 //-------------------------------------------------------//
-
-
 void updateIMU(float gx, float gy, float gz, float ax, float ay, float az)
 {
 	float recipNorm;
