@@ -29,6 +29,7 @@
 #include "utility/Adafruit_PWMServoDriver.h"
 #include <Adafruit_Sensor.h>			//New Library - Must be downloaded
 #include <Adafruit_ADXL345_U.h>			//New Library - Must be downloaded
+#define pi 3.1415926535897932384626
 
 //-----------------------INS Definitions---------------------------------------//
 //***********************BEGIN ORIENTATION INFORMATION*******************************//
@@ -99,6 +100,12 @@ volatile float q0 = 1.0f, q1 = 0.0f, q2 = 0.0f, q3 = 0.0f;
 volatile float integralFBx = 0.0f, integralFBy = 0.0f, integralFBz = 0.0f;
 float FV1, FV2, FV3, UV1, UV2, UV3, RV1, RV2, RV3;
 
+//-----------------------Encoder Variables-------------------------------------------//
+volatile int encoderL = 0;
+volatile int encoderR = 0;
+double x = 0;
+double y = 0;
+double heading = 0;
 
 
 //------------------------Motor Shield Initialization---------------------------//
@@ -128,7 +135,8 @@ boolean obstacleStop = false;
 
 void setup() {
   Serial.begin(9600);                                            // set up Serial library at 9600 bps
-
+  attachInterrupt(0, leftCount, CHANGE);
+  attachInterrupt(1, rightCount, CHANGE);
 }
 
 //*************************************************   Main Loop   *****************************************************
@@ -138,7 +146,7 @@ void setup() {
 
 
 void loop(){
-  //-----------------Initialization check--------------//
+  //-----------------Initialization check (Loop) --------------//
 
   
   while(!initialized){
@@ -164,7 +172,7 @@ void loop(){
   //Serial.print("Mean Distance: ");
   //Serial.println(objDistcenter);  // This is for testing the front distance sensor's readings when needed
   
-    //-------------------INS-----------------------//
+    //-------------------INS (Loop)-----------------------//
     sensors_event_t event; 					   //Read accelerometer data.
     accel.getEvent(&event);
    
@@ -179,10 +187,7 @@ void loop(){
     gyro.read();                                                   //Read gyroscope data.
     
     
-    //---------------------updated Gyro Stuff-------------------------//
-    //---------------------updated Gyro Stuff-------------------------//
-    //---------------------updated Gyro Stuff-------------------------//
-    
+    //---------------------updated Gyro Stuff (Loop)-------------------------//
      ratex = ((int)gyro.g.x-dc_offset)/100;
      ratey = ((int)gyro.g.y-dc_offset)/100;
      ratez = ((int)gyro.g.z-dc_offset)/100;
@@ -212,10 +217,6 @@ void loop(){
        if (anglez < 0){
           anglez += 360;
        }
-    //---------------------END updated Gyro Stuff-------------------------//
-    //---------------------END updated Gyro Stuff-------------------------//
-    //---------------------END updated Gyro Stuff-------------------------//
-    
     
     gx = anglex;
     gy = angley;
@@ -235,7 +236,36 @@ void loop(){
    // Serial.println((float)q3);
     Serial.println("");*/
     
-  //-------------------Not ins-----------------------//
+  //-------------------Encoders (Loop)-----------------------//
+  heading = (2*pi*(0.0325/0.1)*((encoderL-encoderR)/16) * (180/pi));
+  
+  if (heading >= 360)
+  {
+    heading -= 360;
+  }
+  if (heading < 0)
+  {
+    heading += 360;
+  }
+  
+  x = (0.0325*cos(heading*(pi/180))*(encoderL+encoderR)*(pi/16));
+  
+  y = (0.0325*sin(heading*(pi/180))*(encoderL+encoderR)*(pi/16));
+    Serial.print("distance values: ");
+    Serial.print(x);
+    Serial.print("\t");
+    Serial.print(y);
+    Serial.print("\t");
+    Serial.print("\t");
+    Serial.print("encoder steps");
+    Serial.print(encoderL);
+    Serial.print("\t");
+    Serial.print(encoderR);
+    Serial.print("\t");
+    Serial.print("heading: ");
+    Serial.print(heading);
+    Serial.println();
+  //-------------------Not ins (Loop)-----------------------//
   
   ReadCommand();
 
@@ -248,7 +278,9 @@ void loop(){
     }*/
     
     
-
+    //leftCount();
+    //rightCount();
+    
     SpeedChange();    
     Halt();
     TurnLeft();
@@ -260,7 +292,6 @@ void loop(){
 
 
 }
-
 
 
 
@@ -369,6 +400,7 @@ void StartUp(){
 
 void Reset(){
   if(incCommand == "reset"){
+    Serial.print(ard_id + " stop");
     Serial.println();
     booted = false;
     initialized = false;
@@ -618,4 +650,35 @@ void get_RightVector(float q0, float q1, float q2, float q3)
     RV1 = 1 - 2 * (q1 * q1 + q2 * q2);
     RV2 = 2 * (q0 * q1 + q3 * q2);
     RV3 = 2 * (q0 * q2 - q3 * q1);
+}
+
+
+//-----------------Encoder Functions-----------//
+void leftCount()
+{
+  if (moveState == 1 || moveState == 3)
+  {
+    encoderL++;
+  }
+  if (moveState == 2 || moveState == 4)
+  {
+    encoderL--;
+  }
+  //Serial.print("EncoderL: ");
+  //Serial.println(encoderL);
+}
+
+void rightCount()
+{
+  if (moveState == 1 || moveState == 4)
+  {
+    encoderR++;
+    
+  }
+  if (moveState == 2 || moveState == 3)
+  {
+    encoderR--;
+  }
+ // Serial.print("EncoderR: ");
+  //Serial.println(encoderR);
 }
