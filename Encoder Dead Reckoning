@@ -3,6 +3,7 @@ volatile int encoderR = 0;
 double x = 0;
 double y = 0;
 double heading = 0;
+#define pi 3.1415926535897932384626
 
 void setup()
 {
@@ -13,42 +14,67 @@ void setup()
 
 void loop()
 {
-  heading = (2*pi*(0.0325/0.1)*((encoderL-encoderR)/16));
-  
-  if (heading >= 360)
+    if (encoderL == encoderR)
   {
-    heading -= 360;
+    x += (encoderL * (pi * 0.065 / 32) * cos(heading));
+    y += (encoderR * (pi * 0.065 / 32) * sin(heading));
   }
-  if (heading < 0)
+  else
   {
-    heading += 360;
+    x += ((0.1 * (encoderR * (pi * 0.065 / 32) + encoderL * (pi * 0.065 / 32)) / 2.0 / (encoderR * (pi * 0.065 / 32) + encoderL * (pi * 0.065 / 32))) * sin(((encoderR * (pi * 0.065 / 32) - encoderL * (pi * 0.065 / 32)) / 0.1 + heading) - sin(heading)));
+    y += ((0.1 * (encoderR * (pi * 0.065 / 32) + encoderL * (pi * 0.065 / 32)) / 2.0 / (encoderR * (pi * 0.065 / 32) + encoderL * (pi * 0.065 / 32))) * cos(((encoderR * (pi * 0.065 / 32) - encoderL * (pi * 0.065 / 32)) / 0.1 + heading) - cos(heading)));
   }
   
-  x = (0.0325*cos(heading*(pi/180))*(encoderL+encoderR)*(pi/16));
+  heading += ((encoderR * (pi * 0.065 / 32) - encoderL * (pi * 0.065 / 32)) / 0.1);
   
-  y = (0.0325*sin(heading*(pi/180))*(encoderL+encoderR)*(pi/16));
+  while(heading > pi)
+  {
+    heading -= (2.0 * pi);
+  }
+  while(heading < -pi)
+  {
+    heading += (2.0 * pi);
+  }
+  
+  encoderL = 0;
+  encoderR = 0;
+
+    Serial.print("distance values: ");
+    Serial.print(x);
+    Serial.print("\t");
+    Serial.print(y);
+    Serial.print("\t");
+    Serial.print("\t");
+    Serial.print("encoder steps: ");
+    Serial.print(encoderL);
+    Serial.print("\t");
+    Serial.print(encoderR);
+    Serial.print("\t");
+    Serial.print("heading: ");
+    Serial.print(heading);
+    Serial.println();
 }
 
 void leftCount()
 {
-  if (move = forward || move = right)
+  //if (moveState == 1 || moveState == 3)
   {
     encoderL++;
   }
-  if (move = backward || move = left)
+  //if (moveState == 2 || moveState == 4)
   {
-    encoderL--;
+    //encoderL--;
   }
 }
 
 void rightCount()
 {
-  if (move = forward || move = left)
+  //if (moveState == 1 || moveState == 4)
   {
     encoderR++;
   }
-  if (move = backward || move = right)
+  //if (moveState == 2 || moveState == 3)
   {
-    encoderR--;
+    //encoderR--;
   }
 }
