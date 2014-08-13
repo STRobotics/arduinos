@@ -20,3 +20,5 @@ arduinos
                       Gyroscope returns degrees on all three axis, while accelerometer returns m/s on all three axis.
                      *IMPORTANT: Two libraries must be downloaded, the Adafruit Sensor.h, and the Adafruit ADXL345 U.h.
 
+// 08-13-2014. 14:39: Encoder dead reckoning file updated, can test independently of other code. X and Y is in meters,
+                      heading is in radians, so it must be converted to degrees.
