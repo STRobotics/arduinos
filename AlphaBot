@@ -117,12 +117,13 @@ Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);
 
 
 //-----------------------Robot Properties----------------------------//
-
+//boolean initialized = false;
+//boolean booted = false;
 boolean printStartup = true;
 boolean loopStarted = false;
 
 String ard_id = "1"; // This robot's Name tag
-String incCommand, com_id, msg, val, pointX, pointY; //This will be used to parse instructions.
+String incCommand, com_id, msg, val; //This will be used to parse instructions.
 
 int moveSpeed = 200;
 int moveState;
@@ -150,7 +151,7 @@ void setup() {
 
 void loop(){
   //-----------------Initialization check (Loop) --------------//
-  JavaStart();
+  //JavaStart();
   while(!loopStarted){
     while(printStartup){
       Serial.println("STR AlphaBot Initiating...");
@@ -163,10 +164,10 @@ void loop(){
     }
 
       ReadCommand();
-      //if(incCommand == "start" || incCommand == "begin" || incCommand == "initialize" || incCommand == "StartUp"){
-      StartUp();
-      loopStarted = true;
-      //}
+      if(incCommand == "start" || incCommand == "begin" || incCommand == "initialize" || incCommand == "StartUp"){
+        StartUp();
+        loopStarted = true;
+      }
   }
   //--------------------------------------------------//
   
@@ -278,18 +279,10 @@ void loop(){
     
     SpeedChange();    
     
-    if(com_id == ard_id && msg == "left"){
-      TurnLeft();
-    }
-    if(com_id == ard_id && msg == "right"){
-      TurnRight();
-    }
-    if((com_id == ard_id && msg == "go") || (com_id == ard_id && msg == "forward")){
-      MoveForward();
-    }
-    if(com_id == ard_id && msg == "back"){
-      MoveBackward();
-    }
+    TurnLeft();
+    TurnRight();
+    MoveForward();
+    MoveBackward();
     
     Reset();
     Close();
@@ -344,14 +337,14 @@ void StartUp(){
   
   
   //-----------------------StartUp Countdown--------------------------//
-  /*Serial.println("AlphaBot Starting in 3");
+  Serial.println("AlphaBot Starting in 3");
   delay(1000);
   Serial.println("AlphaBot Starting in 2");
   delay(1000);
   Serial.println("AlphaBot Starting in 1");
-  delay(1000);  */
+  delay(1000);  
   Serial.println("AlphaBot Initiated.");
-  //delay(500);
+  delay(500);
   
 }
 //*************************************************   Functions   *****************************************************
@@ -459,13 +452,6 @@ void ReadCommand(){
     if(msg == "speed"){
       Serial.print(val);
     }
-    if(msg == "GoToPoint"){
-      Serial.print("(");
-      Serial.print(pointX);
-      Serial.print(",");
-      Serial.print(pointY);
-      Serial.print(")");
-    }
     Serial.println(" ");
   }
 }
@@ -474,13 +460,8 @@ void parseData(){
   if (incCommand.indexOf(" ")>=0){
     int leftbracket = incCommand.indexOf("(");
     int rightbracket = incCommand.indexOf(")");
-    int pointComma = incCommand.indexOf(",");
     com_id = incCommand.substring(0,(incCommand.indexOf(" ")));
     msg = incCommand.substring(incCommand.indexOf(" ")+1,leftbracket);
-    if(msg == "GoToPoint"){
-      pointX = incCommand.substring(leftbracket+1,pointComma);
-      pointY = incCommand.substring(pointComma+1,rightbracket);
-    }
     val = incCommand.substring(leftbracket+1,rightbracket);
   }
 
@@ -503,41 +484,50 @@ void SpeedChange(){
 }
 
 void MoveForward(){
+  if((com_id == ard_id && msg == "go") || (com_id == ard_id && msg == "forward")){
     moveState = 1;
     // Serial.println("Moving Forward Left Tilt");
      leftMotor->setSpeed(moveSpeed);
      rightMotor->setSpeed(moveSpeed);
      leftMotor ->run(BACKWARD); 
      rightMotor->run(FORWARD);
+  }
 }
 
 
 
 void MoveBackward(){
+  if(com_id == ard_id && msg == "back"){
    moveState = 2; 
    // Serial.println("Moving Backward Right Tilt");
     leftMotor->setSpeed(moveSpeed);
     rightMotor->setSpeed(moveSpeed);
     rightMotor->run(BACKWARD);
     leftMotor ->run(FORWARD);
+  }
 }
 
 void TurnRight(){
+  
+  if(com_id == ard_id && msg == "right"){
     moveState = 3;
   //  Serial.println("turning Right");
       leftMotor->setSpeed(moveSpeed);
       rightMotor->setSpeed(moveSpeed); 
       rightMotor->run(BACKWARD);
       leftMotor->run(BACKWARD);
+  }
 }
 
 void TurnLeft(){
+  if(com_id == ard_id && msg == "left"){
     moveState = 4;
    // Serial.println("turning Left");
       leftMotor->setSpeed(moveSpeed);
       rightMotor->setSpeed(moveSpeed);
       leftMotor->run(FORWARD);
       rightMotor->run(FORWARD);
+  }
 }
 
 
