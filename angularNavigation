@@ -1,0 +1,61 @@
+
+float x;
+float y;
+float heading = 0;
+
+
+float encoderDist; //The steps gained from the encoder translated into units or meters or whatever
+
+
+void loop(){
+  //if(com_id == ard_id && msg == "GoToPoint"){
+    //GoToPoint();
+  //}
+}
+
+void GoToPoint(float gtpx, float gtpy){
+  float targetPosx = gtpx;
+  float targetPosy = gtpy;
+  float dF = sqrt((sq(targetPosx - x))+(sq(targetPosy - y))); //Max Distance to travel on this command
+  float d1 = 0; //Distance travelled on the vector
+  float targetHeading = asin((targetPosy - y)/dF);
+
+  while (targetPosx != x && targetPosy != y){
+    GetVectorDist(); //Gets the distance travelled on this specific forward vector
+    HeadingAdjust();
+    PositionAdjust();
+  }
+}
+
+void HeadingAdjust(){
+    
+    if (!(heading <= targetHeading + .25 && heading >= targetHeading - .25)){ //heading within range
+      Serial.print("Angle doesn't match");
+      //Halt();
+    }
+    while (!(heading <= targetHeading + .25 && heading >= targetHeading - .25)){ //heading within range
+      //TurnRight();
+    }
+    Serial.print("Angle now in effective range!");
+}
+
+void PositionAdjust(){
+  if (encoderL == encoderR)
+  {
+    x += (encoderL * (pi * 0.065 / 32) * cos(heading));
+    y += (encoderR * (pi * 0.065 / 32) * sin(heading));
+  }
+  else
+  {
+    x += ((0.1 * (encoderR * (pi * 0.065 / 32) + encoderL * (pi * 0.065 / 32)) / 2.0 / (encoderR * (pi * 0.065 / 32) + encoderL * (pi * 0.065 / 32))) * sin(((encoderR * (pi * 0.065 / 32) - encoderL * (pi * 0.065 / 32)) / 0.1 + heading) - sin(heading)));
+    y += ((0.1 * (encoderR * (pi * 0.065 / 32) + encoderL * (pi * 0.065 / 32)) / 2.0 / (encoderR * (pi * 0.065 / 32) + encoderL * (pi * 0.065 / 32))) * cos(((encoderR * (pi * 0.065 / 32) - encoderL * (pi * 0.065 / 32)) / 0.1 + heading) - cos(heading)));
+  }
+}
+
+void GetVectorDist(){
+  vectorDist += encoderDist; //adds the translated encoder steps to the distance travelled on this vector
+}
+
+void PointVariableGet(){
+
+}
