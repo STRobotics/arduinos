@@ -164,10 +164,10 @@ void loop(){
     }
 
       ReadCommand();
-      if(incCommand == "start" || incCommand == "begin" || incCommand == "initialize" || incCommand == "StartUp"){
+      //if(incCommand == "start" || incCommand == "begin" || incCommand == "initialize" || incCommand == "StartUp"){
         StartUp();
         loopStarted = true;
-      }
+      //}
   }
   //--------------------------------------------------//
   
@@ -247,7 +247,7 @@ void loop(){
   x = (0.0325*cos(heading*(pi/180))*(encoderL+encoderR)*(pi/16));
   
   y = (0.0325*sin(heading*(pi/180))*(encoderL+encoderR)*(pi/16));
-    Serial.print("distance values: ");
+   /* Serial.print("distance values: ");
     Serial.print(x);
     Serial.print("\t");
     Serial.print(y);
@@ -260,7 +260,7 @@ void loop(){
     Serial.print("\t");
     Serial.print("heading: ");
     Serial.print(heading);
-    Serial.println();
+    Serial.println();*/
   //-------------------Not ins (Loop)-----------------------//
   
   ReadCommand();
@@ -337,14 +337,14 @@ void StartUp(){
   
   
   //-----------------------StartUp Countdown--------------------------//
-  Serial.println("AlphaBot Starting in 3");
+  /*Serial.println("AlphaBot Starting in 3");
   delay(1000);
   Serial.println("AlphaBot Starting in 2");
   delay(1000);
   Serial.println("AlphaBot Starting in 1");
-  delay(1000);  
+  delay(1000);  */
   Serial.println("AlphaBot Initiated.");
-  delay(500);
+  //delay(500);
   
 }
 //*************************************************   Functions   *****************************************************
