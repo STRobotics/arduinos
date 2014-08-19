@@ -65,7 +65,7 @@ int iRValueRight = 0;
 
 
 //-----------------------Gyro Noise Reduction-------------------------------------//
-int sampleNum = 3000;
+int sampleNum = 2000;
 int dc_offset = 0;
 double noise = 0;
 
@@ -150,6 +150,7 @@ void setup() {
 
 
 void loop(){
+  
   //-----------------Initialization check (Loop) --------------//
   //JavaStart();
   while(!loopStarted){
@@ -163,132 +164,55 @@ void loop(){
       printStartup = false;
     }
 
-      ReadCommand();
-      if(incCommand == "start" || incCommand == "begin" || incCommand == "initialize" || incCommand == "StartUp"){
-        StartUp();
-        loopStarted = true;
-      }
+    ReadCommand();
+    if(incCommand == "start" || incCommand == "begin" || incCommand == "initialize" || incCommand == "StartUp"){
+      StartUp();
+      loopStarted = true;
+    }
   }
-  //--------------------------------------------------//
+  //------------------------------------------------------//
   
   
   int objDistCenter = iRRangeCenter.distance();
   //Serial.print("Mean Distance: ");
   //Serial.println(objDistcenter);  // This is for testing the front distance sensor's readings when needed
   
-    //-------------------INS (Loop)-----------------------//
-    sensors_event_t event; 					   //Read accelerometer data.
-    accel.getEvent(&event);
-   
-    fXg = event.acceleration.x * 0.5 + (fXg * 0.5);
-    fYg = event.acceleration.y * 0.5 + (fYg * 0.5);
-    fZg = event.acceleration.z * 0.5 + (fZg * 0.5);
-    
-    ax = fXg;
-    ay = fYg;
-    az = fZg;
-    
-    gyro.read();                                                   //Read gyroscope data.
-    
-    
-    //---------------------updated Gyro Stuff (Loop)-------------------------//
-     ratex = ((int)gyro.g.x-dc_offset)/100;
-     ratey = ((int)gyro.g.y-dc_offset)/100;
-     ratez = ((int)gyro.g.z-dc_offset)/100;
- 
-     anglex += ((double)(prev_ratex + ratex) * sampleTime) / 2000;
-     angley += ((double)(prev_ratey + ratey) * sampleTime) / 2000;
-     anglez += ((double)(prev_ratez + ratez) * sampleTime) / 2000;
-     
-     // remember the current speed for the next loop rate integration.
-     prev_ratex = ratex;
-     prev_ratey = ratey;
-     prev_ratez = ratez;
-     
-     // Keep our angle between 0-359 degrees
-       if (anglex < 0){
-         anglex += 360;
-       }
-       else if (anglex >= 360){
-         anglex -= 360;
-       }
-       if (angley < 0){
-         angley += 360;
-       }
-       else if (angley >= 360){
-         angley -= 360;
-       }
-       if (anglez < 0){
-          anglez += 360;
-       }
-    
-    gx = anglex;
-    gy = angley;
-    gz = anglez;
-    
-    //iRValueLeft = iRRangeLeft.distance();                          //Reads and stores range data.
-    iRValueCenter = iRRangeCenter.distance();
-    
-    updateIMU( gx,  gy,  gz,  ax,  ay,  az);
-
-    
-  //-------------------Encoders (Loop)-----------------------//
-  heading = (2*pi*(0.0325/0.1)*((encoderL-encoderR)/16) * (180/pi));
   
-  if (heading >= 360)
-  {
-    heading -= 360;
+  //-------------------Accelerometer Update-------------------------//
+  //Not currently using Accelerometer
+  //AccelRead();
+  //------------------GyroScope Update-----------//
+  //Not currently using Gyroscope
+  /*
+  gyro.read();        //Read gyroscope data.
+  GyroAngleUpdate();
+  */
+  //------------------------------------------------------//
+  
+  
+  ReadCommand(); // Parses incoming serial data
+  SpeedChange();  
+  
+  TurnLeft();
+  TurnRight();
+  MoveForward();
+  MoveBackward();
+  
+  Reset();
+  Close();
+  
+  if((com_id == ard_id && msg == "stop") || (com_id == ard_id && msg == "halt") || incCommand == "stop" || incCommand == "halt"){
+    Halt();
   }
-  if (heading < 0)
-  {
-    heading += 360;
-  }
-  
-  x = (0.0325*cos(heading*(pi/180))*(encoderL+encoderR)*(pi/16));
-  
-  y = (0.0325*sin(heading*(pi/180))*(encoderL+encoderR)*(pi/16));
-   /* Serial.print("distance values: ");
-    Serial.print(x);
-    Serial.print("\t");
-    Serial.print(y);
-    Serial.print("\t");
-    Serial.print("\t");
-    Serial.print("encoder steps: ");
-    Serial.print(encoderL);
-    Serial.print("\t");
-    Serial.print(encoderR);
-    Serial.print("\t");
-    Serial.print("heading: ");
-    Serial.print(heading);
-    Serial.println();*/
-  //-------------------Not ins (Loop)-----------------------//
-  
-  ReadCommand();
-
   
   /*if(objDistCenter <= 35 && objDistCenter > 0){
-       //will initiate brake if too near to object
-       com_id = ard_id;
-       msg = "stop";
-       Serial.println("Object too close! Braking!");
-    }*/
-    
-    
-    //leftCount();
-    //rightCount();
-    
-    SpeedChange();    
-    
-    TurnLeft();
-    TurnRight();
-    MoveForward();
-    MoveBackward();
-    
-    Reset();
-    Close();
-    if((com_id == ard_id && msg == "stop") || (com_id == ard_id && msg == "halt") || incCommand == "stop" || incCommand == "halt"){
-      Halt();
-    }
+     //will initiate brake if too near to object
+     com_id = ard_id;
+     msg = "stop";
+     Serial.println("Object too close! Braking!");
+  }*/
+  
+  delay(50);
 }
 
 
@@ -300,16 +224,14 @@ void loop(){
 //*********************************************************************************************************************
 //*********************************************************************************************************************
 void StartUp(){
-  
   //-----------------------StartUp Initiation--------------------------//
   Serial.println("StartUp() initialized...");
-  
 
   Wire.begin();
   Serial.println("Wire library initialized");
   //---------------------------GYRO Noise Reduction-------------------------------------//
-  GyroCalibrate();
-
+  //Not Currently using Gyroscope
+  //GyroCalibrate();
   //-----------------------Distance (IR) Sensor-------------------------//
   //These may need to change if the analog inputs change on the board.
   //pinMode(A0, INPUT);
@@ -317,7 +239,9 @@ void StartUp(){
   //pinMode(A2, INPUT); // Setting up the analog inputs for powering the IR sensors.
   pinMode(A3, INPUT);
 
-  //-----------------------INS--------------------------//
+  //-----------------------Accelerometer Startup--------------------------//
+  //Not Currently using accelerometer
+  /*
   if(!accel.begin())
   {
     Serial.println("Failed to autodetect accelerometer.");	//Accelerometer not detected.
@@ -325,7 +249,7 @@ void StartUp(){
   }
  
   accel.setRange(ADXL345_RANGE_16_G);
-  
+  */
   //-----------------------Motor Shield--------------------------//
   AFMS.begin();                                                  // create with the default frequency 1.6KHz
   //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
@@ -383,7 +307,7 @@ void Close(){
     Serial.println("Serial Connection Severed Temporarily!");
     Serial.println("Goodbye!");
     Serial.end();
-    Serial.begin(9600);
+    //Serial.begin(9600);
   }
 }
 
@@ -393,12 +317,13 @@ void GyroCalibrate(){
     Serial.println("Failed to autodetect gyro.");
     while (1);
   }
+  
   gyro.enableDefault();
   Serial.println("Gyro default enabled");
   Serial.println();
   Serial.println("Please do not move the robot while its Gyroscope calibrates!");
   Serial.println("About to start calibration...");
-  delay(3000);
+  delay(1000);
   Serial.println("calibrating gyroscope...");
   for(int n=0;n<sampleNum;n++){
     gyro.read();
@@ -554,6 +479,61 @@ void Halt(){
 //-------------------------------------------------------//
 //-------------------------------------------------------//
 //-------------------------------------------------------//
+    void AccelRead(){
+      sensors_event_t event; 					   //Read accelerometer data.
+      accel.getEvent(&event);
+     
+      fXg = event.acceleration.x * 0.5 + (fXg * 0.5);
+      fYg = event.acceleration.y * 0.5 + (fYg * 0.5);
+      fZg = event.acceleration.z * 0.5 + (fZg * 0.5);
+      
+      ax = fXg;
+      ay = fYg;
+      az = fZg;
+    }
+
+    void GyroAngleUpdate(){
+     ratex = ((int)gyro.g.x-dc_offset)/100;
+     ratey = ((int)gyro.g.y-dc_offset)/100;
+     ratez = ((int)gyro.g.z-dc_offset)/100;
+ 
+     anglex += ((double)(prev_ratex + ratex) * sampleTime) / 2000;
+     angley += ((double)(prev_ratey + ratey) * sampleTime) / 2000;
+     anglez += ((double)(prev_ratez + ratez) * sampleTime) / 2000;
+     
+     // remember the current speed for the next loop rate integration.
+     prev_ratex = ratex;
+     prev_ratey = ratey;
+     prev_ratez = ratez;
+     
+     // Keep our angle between 0-359 degrees
+       if (anglex < 0){
+         anglex += 360;
+       }
+       else if (anglex >= 360){
+         anglex -= 360;
+       }
+       if (angley < 0){
+         angley += 360;
+       }
+       else if (angley >= 360){
+         angley -= 360;
+       }
+       if (anglez < 0){
+          anglez += 360;
+       }
+    
+    gx = anglex;
+    gy = angley;
+    gz = anglez;
+    
+    //iRValueLeft = iRRangeLeft.distance();                          //Reads and stores range data.
+    iRValueCenter = iRRangeCenter.distance();
+    
+    updateIMU( gx,  gy,  gz,  ax,  ay,  az);
+    }
+
+
 void updateIMU(float gx, float gy, float gz, float ax, float ay, float az)
 {
 	float recipNorm;
