@@ -79,8 +79,8 @@ int prev_ratey = 0;
 int prev_ratez = 0;
 double anglex = 0;
 double angley = 0;
-double anglez = 0;
-
+double anglez = 90;
+double radAnglez = 0;
 //-----------------------INS Variables-------------------------------------------//
 L3G gyro;                                                  //Initialize gyro.
 
@@ -100,21 +100,19 @@ volatile float q0 = 1.0f, q1 = 0.0f, q2 = 0.0f, q3 = 0.0f;
 volatile float integralFBx = 0.0f, integralFBy = 0.0f, integralFBz = 0.0f;
 float FV1, FV2, FV3, UV1, UV2, UV3, RV1, RV2, RV3;
 
-//-----------------------Encoder Variables-------------------------------------------//
-volatile int encoderL = 0;
-volatile int encoderR = 0;
-double x = 0;
-double y = 0;
-double heading = 0;
-
-
 //------------------------Motor Shield Initialization---------------------------//
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(); 
 
 Adafruit_DCMotor *leftMotor = AFMS.getMotor(1);
 Adafruit_DCMotor *rightMotor = AFMS.getMotor(2);
 
-
+//-----------------------Encoder Variables-------------------------------------------//
+volatile int encoderL = 0;
+volatile int encoderR = 0;
+int x = 0;
+int y = 0;
+float heading = 0;
+float encoderDist; //The steps gained from the encoder translated into units or meters or whatever
 
 //-----------------------Robot Properties----------------------------//
 //boolean initialized = false;
@@ -123,7 +121,7 @@ boolean printStartup = true;
 boolean loopStarted = false;
 
 String ard_id = "1"; // This robot's Name tag
-String incCommand, com_id, msg, val; //This will be used to parse instructions.
+String incCommand, com_id, msg, val, valx, valy; //This will be used to parse instructions.
 
 int moveSpeed = 200;
 int moveState;
@@ -137,7 +135,7 @@ boolean obstacleStop = false;
 //*********************************************************************************************************************
 
 void setup() {
-  Serial.begin(9600);                                            // set up Serial library at 9600 bps
+  Serial.begin(115200);                                            // set up Serial library at 9600 bps
   Serial.print("Serial Started");
   attachInterrupt(0, leftCount, CHANGE);
   attachInterrupt(1, rightCount, CHANGE);
@@ -173,7 +171,7 @@ void loop(){
   //------------------------------------------------------//
   
   
-  int objDistCenter = iRRangeCenter.distance();
+  //int objDistCenter = iRRangeCenter.distance(); //SLOWS DOWN THE GYROSCOPE!
   //Serial.print("Mean Distance: ");
   //Serial.println(objDistcenter);  // This is for testing the front distance sensor's readings when needed
   
@@ -182,21 +180,42 @@ void loop(){
   //Not currently using Accelerometer
   //AccelRead();
   //------------------GyroScope Update-----------//
-  //Not currently using Gyroscope
-  /*
-  gyro.read();        //Read gyroscope data.
-  GyroAngleUpdate();
-  */
+  
+  
+  if(millis() - time > sampleTime){
+    GyroAngleUpdate();
+  }
   //------------------------------------------------------//
   
   
   ReadCommand(); // Parses incoming serial data
-  SpeedChange();  
+  SpeedChange();
   
-  TurnLeft();
-  TurnRight();
-  MoveForward();
-  MoveBackward();
+  
+  
+  if((com_id == ard_id && msg == "goto")){  
+    GoToPoint(valx.toInt(), valy.toInt());
+  }
+  
+  if((com_id == ard_id && msg == "go") || (com_id == ard_id && msg == "forward")){
+    //Movestate 1
+    MoveForward();
+  }
+  
+  if(com_id == ard_id && msg == "back"){
+    //movestate 2
+    MoveBackward();
+  }
+
+  if(com_id == ard_id && msg == "right"){
+    //movestate 3
+    TurnRight();
+  }
+  
+  if(com_id == ard_id && msg == "left"){
+    TurnLeft();
+  }
+
   
   Reset();
   Close();
@@ -212,7 +231,11 @@ void loop(){
      Serial.println("Object too close! Braking!");
   }*/
   
-  delay(50);
+  PositionAdjust();
+  HeadingAdjust();
+  //Serial.println(heading);
+  //encoderL = 0;
+  //encoderR = 0;
 }
 
 
@@ -230,8 +253,8 @@ void StartUp(){
   Wire.begin();
   Serial.println("Wire library initialized");
   //---------------------------GYRO Noise Reduction-------------------------------------//
-  //Not Currently using Gyroscope
-  //GyroCalibrate();
+  
+  GyroCalibrate();
   //-----------------------Distance (IR) Sensor-------------------------//
   //These may need to change if the analog inputs change on the board.
   //pinMode(A0, INPUT);
@@ -261,12 +284,12 @@ void StartUp(){
   
   
   //-----------------------StartUp Countdown--------------------------//
-  Serial.println("AlphaBot Starting in 3");
+  /*Serial.println("AlphaBot Starting in 3");
   delay(1000);
   Serial.println("AlphaBot Starting in 2");
   delay(1000);
   Serial.println("AlphaBot Starting in 1");
-  delay(1000);  
+  delay(1000);  */
   Serial.println("AlphaBot Initiated.");
   delay(500);
   
@@ -277,6 +300,74 @@ void StartUp(){
 //*********************************************************************************************************************
 //*********************************************************************************************************************
 //*********************************************************************************************************************
+double targetHeading;
+int targetPosx;
+int targetPosy;
+double dF;
+double d1;
+
+void GoToPoint(double gtpx, double gtpy){
+  targetPosy = gtpy;
+  targetPosx = gtpx;
+  dF = sqrt((sq(targetPosx - x))+(sq(targetPosy - y))); //Max Distance to travel on this command
+  d1 = 0; //Distance travelled on the vector
+  targetHeading = asin((targetPosy - y)/dF);
+  
+  
+  //Serial.println(targetPosy); Serial.println(targetPosx); Serial.println(dF);Serial.println(d1);
+  
+  while (targetPosx != x && targetPosy != y){
+    ReadCommand();
+    GyroAngleUpdate();
+    if((com_id == ard_id && msg == "stop") || (com_id == ard_id && msg == "halt") || incCommand == "stop" || incCommand == "halt"){
+     break;
+    }
+    Serial.print("radAnglez: ");Serial.print(radAnglez); 
+    Serial.print("\t");Serial.print("Target Heading: ");Serial.print(targetHeading);
+    Serial.print("\t");Serial.print("coordinates: "); Serial.print(x); Serial.print("\t");Serial.println(y);
+    
+    //if((heading <= targetHeading + .25) && (heading >= targetHeading - .25)) //heading within range
+    if((radAnglez <= targetHeading + .25) && (radAnglez >= targetHeading - .25)){ //heading within range
+      MoveForward();
+    }
+    if(radAnglez <= targetHeading -.25){
+      TurnLeft();
+    }
+    if(radAnglez >= targetHeading +.25){
+      TurnRight();
+    }
+  }
+  Halt();
+}
+
+
+void HeadingAdjust(){
+  heading += ((encoderR * (pi * 0.065 / 32) - encoderL * (pi * 0.065 / 32)) / 0.1);
+  
+  while(heading > pi)
+  {
+    heading -= (2.0 * pi);
+  }
+  while(heading < -pi)
+  {
+    heading += (2.0 * pi);
+  } 
+}
+
+void PositionAdjust(){
+  if (encoderL == encoderR) // the robot is moving forward straight
+  {
+    //Serial.println("encoder L = encoder R");
+    x += (encoderL * (pi * 0.065 / 32) * cos(heading)); //The distance travelled on x axis
+    y += (encoderR * (pi * 0.065 / 32) * sin(heading)); //The distance travelled on y axis
+  }
+  else //the robot is turning
+  {
+    //Serial.println("encoder L != encoder R");
+    x += ((0.1 * (encoderR * (pi * 0.065 / 32) + encoderL * (pi * 0.065 / 32)) / 2.0 / (encoderR * (pi * 0.065 / 32) + encoderL * (pi * 0.065 / 32))) * sin(((encoderR * (pi * 0.065 / 32) - encoderL * (pi * 0.065 / 32)) / 0.1 + heading) - sin(heading)));
+    y += ((0.1 * (encoderR * (pi * 0.065 / 32) + encoderL * (pi * 0.065 / 32)) / 2.0 / (encoderR * (pi * 0.065 / 32) + encoderL * (pi * 0.065 / 32))) * cos(((encoderR * (pi * 0.065 / 32) - encoderL * (pi * 0.065 / 32)) / 0.1 + heading) - cos(heading)));
+  }
+}
 
 void JavaStart(){
   if(incCommand == "jstart"){
@@ -368,6 +459,15 @@ void ReadCommand(){
     if (incCommand == "begin" || incCommand == "jstart" || incCommand == "start" || incCommand == "initialize" || incCommand == "StartUp"|| incCommand == "close" || incCommand == "reset"){
       return;
     }
+    if (!(incCommand == "begin" || incCommand == "jstart" || incCommand == "start" || incCommand == "initialize" || incCommand == "StartUp"|| incCommand == "close" || incCommand == "reset")){
+      if(!loopStarted){
+      Serial.print("Please initialize before attempting other input!");
+      }
+    }
+    if (!(msg == "goto" || msg == "go" || msg == "forward" || msg == "back" || msg == "left" || msg == "right" || msg == "stop" || msg == "halt")){
+      Serial.println("INVLAID COMMAND");
+      return;
+    }
     
     Serial.print("Data Parsed: ");
     Serial.print(com_id);
@@ -375,9 +475,18 @@ void ReadCommand(){
     Serial.print(msg);
     Serial.print("\t");
     if(msg == "speed"){
+      Serial.print("Speed is: ");
       Serial.print(val);
     }
-    Serial.println(" ");
+    if(msg == "goto"){
+      Serial.print("going to: ");
+      Serial.print("x: ");
+      Serial.print(valx);
+      Serial.print(",");
+      Serial.print("y: ");
+      Serial.print(valy);
+    }
+      Serial.println(" ");
   }
 }
 
@@ -387,7 +496,14 @@ void parseData(){
     int rightbracket = incCommand.indexOf(")");
     com_id = incCommand.substring(0,(incCommand.indexOf(" ")));
     msg = incCommand.substring(incCommand.indexOf(" ")+1,leftbracket);
+    
+
+    
     val = incCommand.substring(leftbracket+1,rightbracket);
+    if(msg == "goto"){
+      valx = val.substring(0,(val.indexOf(",")));
+      valy = val.substring(val.indexOf(",")+1, val.indexOf(")"));
+    }
   }
 
   else{
@@ -409,53 +525,41 @@ void SpeedChange(){
 }
 
 void MoveForward(){
-  if((com_id == ard_id && msg == "go") || (com_id == ard_id && msg == "forward")){
     moveState = 1;
     // Serial.println("Moving Forward Left Tilt");
      leftMotor->setSpeed(moveSpeed);
      rightMotor->setSpeed(moveSpeed);
      leftMotor ->run(BACKWARD); 
      rightMotor->run(FORWARD);
-  }
 }
 
-
-
 void MoveBackward(){
-  if(com_id == ard_id && msg == "back"){
    moveState = 2; 
    // Serial.println("Moving Backward Right Tilt");
     leftMotor->setSpeed(moveSpeed);
     rightMotor->setSpeed(moveSpeed);
     rightMotor->run(BACKWARD);
     leftMotor ->run(FORWARD);
-  }
 }
 
 void TurnRight(){
-  
-  if(com_id == ard_id && msg == "right"){
     moveState = 3;
   //  Serial.println("turning Right");
       leftMotor->setSpeed(moveSpeed);
       rightMotor->setSpeed(moveSpeed); 
       rightMotor->run(BACKWARD);
       leftMotor->run(BACKWARD);
-  }
+
 }
 
 void TurnLeft(){
-  if(com_id == ard_id && msg == "left"){
     moveState = 4;
    // Serial.println("turning Left");
       leftMotor->setSpeed(moveSpeed);
       rightMotor->setSpeed(moveSpeed);
       leftMotor->run(FORWARD);
       rightMotor->run(FORWARD);
-  }
 }
-
-
 
 void Halt(){
   if(moveState != 5){
@@ -493,44 +597,52 @@ void Halt(){
     }
 
     void GyroAngleUpdate(){
-     ratex = ((int)gyro.g.x-dc_offset)/100;
-     ratey = ((int)gyro.g.y-dc_offset)/100;
+      time = millis();
+      gyro.read();        //Read gyroscope data.
+     //ratex = ((int)gyro.g.x-dc_offset)/100;
+     //ratey = ((int)gyro.g.y-dc_offset)/100;
      ratez = ((int)gyro.g.z-dc_offset)/100;
- 
-     anglex += ((double)(prev_ratex + ratex) * sampleTime) / 2000;
-     angley += ((double)(prev_ratey + ratey) * sampleTime) / 2000;
+   
+     //anglex += ((double)(prev_ratex + ratex) * sampleTime) / 2000;
+     //angley += ((double)(prev_ratey + ratey) * sampleTime) / 2000;
      anglez += ((double)(prev_ratez + ratez) * sampleTime) / 2000;
-     
+
      // remember the current speed for the next loop rate integration.
-     prev_ratex = ratex;
-     prev_ratey = ratey;
+     //prev_ratex = ratex;
+     //prev_ratey = ratey;
      prev_ratez = ratez;
      
      // Keep our angle between 0-359 degrees
-       if (anglex < 0){
+       /*if (anglex < 0){
          anglex += 360;
        }
-       else if (anglex >= 360){
+       if (anglex >= 360){
          anglex -= 360;
        }
        if (angley < 0){
          angley += 360;
        }
-       else if (angley >= 360){
+       if (angley >= 360){
          angley -= 360;
-       }
+       }*/
        if (anglez < 0){
           anglez += 360;
        }
+       if (anglez >= 360){
+          anglez -= 360;
+       }
     
-    gx = anglex;
-    gy = angley;
+   // gx = anglex;
+    //gy = angley;
     gz = anglez;
-    
+    radAnglez = anglez * (pi/180);
+    /*Serial.print("anglez: ");Serial.print(anglez);
+    Serial.print("\t"); Serial.print("gz: "); Serial.print(gz);
+    Serial.print("\t"); Serial.print("converted anglez: "); Serial.println( (anglez * (pi/180)) );*/
     //iRValueLeft = iRRangeLeft.distance();                          //Reads and stores range data.
-    iRValueCenter = iRRangeCenter.distance();
+    //iRValueCenter = iRRangeCenter.distance();
     
-    updateIMU( gx,  gy,  gz,  ax,  ay,  az);
+    //updateIMU( gx,  gy,  gz,  ax,  ay,  az);
     }
 
 
@@ -634,9 +746,10 @@ void get_RightVector(float q0, float q1, float q2, float q3)
 }
 
 
-//-----------------Encoder Functions-----------//
+//-----------------Encoder Interrupts-----------//
 void leftCount()
 {
+  //Serial.print("left");
   if (moveState == 1 || moveState == 3)
   {
     encoderL++;
@@ -651,6 +764,7 @@ void leftCount()
 
 void rightCount()
 {
+  //Serial.print("right");
   if (moveState == 1 || moveState == 4)
   {
     encoderR++;
@@ -660,6 +774,6 @@ void rightCount()
   {
     encoderR--;
   }
- // Serial.print("EncoderR: ");
+  //Serial.print("EncoderR: ");
   //Serial.println(encoderR);
 }
