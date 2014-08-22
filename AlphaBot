@@ -137,7 +137,7 @@ double errorbufAng = .2;
 //*********************************************************************************************************************
 
 void setup() {
-  Serial.begin(115200);                                            // set up Serial library at 9600 bps
+  Serial.begin(57600);                                            // set up Serial library at 9600 bps
   Serial.println("Serial Started");
   attachInterrupt(0, leftCount, CHANGE);
   attachInterrupt(1, rightCount, CHANGE);
@@ -421,7 +421,7 @@ void Reset(){
     Serial.println();
     Serial.end();
     delay(1000);
-    Serial.begin(115200);
+    Serial.begin(57600);
     Serial.println("reset the serial!");
     loopStarted = false;
     printStartup = true;
