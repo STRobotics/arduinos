@@ -1,22 +1,20 @@
 #include <Wire.h>
 #include <SharpIR.h>
 #include <SoftwareSerial.h>
-#include <Adafruit_Sensor.h>			//New Library - Must be downloaded
-#include <Adafruit_ADXL345_U.h>			//New Library - Must be downloaded
+#include <Adafruit_Sensor.h>
+#include <Adafruit_ADXL345_U.h>
 #include <Adafruit_L3GD20.h>                    //New Library - Must be downloaded
-
-double fXg = 0;
-double fYg = 0;
-double fZg = 0;
 
 Adafruit_L3GD20 gyro;
 
-double gx, gy, gz; 					   //Gyroscope, in degrees.
+double  gx = 0,  gy = 0,  gz = 0;				   //Gyroscope, in degrees per second.
+double egx = 0, egy = 0, egz = 0;
 
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
-double ax, ay, az; 					   //Accelerometer, in meters per second.
- 
+double  ax = 0,  ay = 0,  az = 0;				   //Accelerometer, in meters per second.
+double eax = 0, eay = 0, eaz = 0;
+
 #define sampleFreq   100.0f
 #define twoKpDef     (2.0f * 0.5f)
 #define twoKiDef     (2.0f * 0.0f)
@@ -29,9 +27,11 @@ float FV1, FV2, FV3, UV1, UV2, UV3, RV1, RV2, RV3;
 
 void setup()
 {
-  Serial.begin(9600);                                              // set up Serial library at 9600 bps
+  Serial.begin(9600);                                              //Set up Serial library at 9600 bps.
   Serial.println("Serial Started");
+  Serial.println("Beginning Setup.");
   Wire.begin();
+  delay(1000);
   if (!gyro.begin(gyro.L3DS20_RANGE_250DPS))                       //Gyro not detected.
   {
     Serial.println("Failed to autodetect gyro.");
@@ -43,19 +43,63 @@ void setup()
     while(1);
   }
   accel.setRange(ADXL345_RANGE_16_G);
+  
+  delay(2500);
+  
+  sensors_event_t event;
+  accel.getEvent(&event);
+  gyro.read();
+  
+  delay(2500);
+  
+  Serial.println("Beginning Calibration.");
+  
+  for (int i = 0; i <= 2000; i++)
+  {
+    sensors_event_t event;
+    accel.getEvent(&event);
+    
+    eax += event.acceleration.x;
+    eay += event.acceleration.y;
+    eaz += event.acceleration.z;
+    
+    gyro.read();
+    
+    egx += (int)gyro.data.x;
+    egy += (int)gyro.data.y;
+    egz += (int)gyro.data.z;
+  }
+  
+  eax = eax/2000; eay = eay/2000; eaz = eaz/2000;
+  egx = egx/2000; egy = egy/2000; egz = egz/2000;
+  
+  Serial.print(eax); Serial.print("\t");
+  Serial.print(eay); Serial.print("\t");
+  Serial.print(eaz); Serial.print("\t");
+  Serial.print(egx); Serial.print("\t");
+  Serial.print(egy); Serial.print("\t");
+  Serial.print(egz); Serial.println("\t");
+  
+  Serial.println("Calibration complete.");
 }
 
 void loop()
 {
   AccelRead();
   GyroAngleUpdate();
+  if (ax < 1 && ax > -1){ax = 0;}
+  if (ay < 1 && ay > -1){ay = 0;}
+  if (az < 1 && az > -1){az = 0;}
+  if (gx < 1 && gx > -1){gx = 0;}
+  if (gy < 1 && gy > -1){gy = 0;}
+  if (gz < 1 && gz > -1){gz = 0;}
   updateIMU(gx, gy, gz, ax, ay, az);
-  /Serial.print(gx); Serial.print("\t");
-  Serial.print(gy); Serial.print("\t");
-  Serial.print(gz); Serial.print("\t");
   Serial.print(ax); Serial.print("\t");
   Serial.print(ay); Serial.print("\t");
-  Serial.print(az); Serial.println("\t");
+  Serial.print(az); Serial.print("\t");
+  Serial.print(gx); Serial.print("\t");
+  Serial.print(gy); Serial.print("\t");
+  Serial.print(gz); Serial.println("\t");
   /*get_ForwardVector(q0, q1, q2, q3);
   get_UpVector(q0, q1, q2, q3);
   get_RightVector(q0, q1, q2, q3);
@@ -72,21 +116,17 @@ void AccelRead()
   sensors_event_t event; 					   //Read accelerometer data.
   accel.getEvent(&event);
   
-  fXg = event.acceleration.x * 0.5 + (fXg * 0.5);
-  fYg = event.acceleration.y * 0.5 + (fYg * 0.5);
-  fZg = event.acceleration.z * 0.5 + (fZg * 0.5);
-  
-  ax = fXg;
-  ay = fYg;
-  az = fZg;
+  ax = event.acceleration.x - eax;
+  ay = event.acceleration.y - eay;
+  az = event.acceleration.z - eaz;
 }
 
 void GyroAngleUpdate()
 {
-   gyro.read();        //Read gyroscope data.
-   gx = (int)gyro.data.x;
-   gy = (int)gyro.data.y;
-   gz = (int)gyro.data.z;
+   gyro.read();                                                    //Read gyroscope data.
+   gx = (int)gyro.data.x - egx;
+   gy = (int)gyro.data.y - egy;
+   gz = (int)gyro.data.z - egz;
 }
     
 void updateIMU(float gx, float gy, float gz, float ax, float ay, float az)
