@@ -226,7 +226,7 @@ int lookup(String input_str){
   input_str.toLowerCase();
   for(int i=0; i!= available_input_str; i++){
       if(input_str == lookup_table[i]){
-      Serial.print("i value");Serial.println(i);
+      //Serial.print("i value");Serial.println(i);
       return i;
     }
   }
