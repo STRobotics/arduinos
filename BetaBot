@@ -71,18 +71,19 @@ void setup() {
                                     //This allows ReadCommand to find the appropriate enum for the command
 const String lookup_table[] = { 
   //utility commands
-  "start", "reset", "close",
-  
+  "start",
+  "reset",
+  "close",
   //Main motor controls
-  "halt", "forward", "back", "right", "left",
-  
+  "halt",
+  "forward",
+  "back",
+  "right",
+  "left",
   //Complex Commands
   "goto", "gotopoint",
-  
   //alternates for halt and forward
   "stop", "go",
-  
-
 };
 
 enum inputs{                      //Make sure each term is in the proper 'slot' to match with its table
@@ -135,11 +136,11 @@ int moveState = INPUT_NONE;
 //Very important.
 
 void ReadCommand(){
-  user_input = "";
     if(Serial.available() > 0){
+      user_input = "";
     while(Serial.available()){
       user_input = user_input + char(Serial.read());
-      delay(10);
+      delay(25);
     }
     
     ParseData();
@@ -154,8 +155,7 @@ void ReadCommand(){
         break;
       
       case INPUT_STOP:
-      case INPUT_HALT:
-        Serial.println(">> halt (Global)");
+        Serial.println(">> stop (Global)");
         Halt();
         moveState = INPUT_NONE;
         break;
@@ -171,15 +171,15 @@ void ReadCommand(){
       default: //if there's no command recognized from the whole 'user_input' looks for a 'msg' value
       //============================================================================================//
         switch (lookup(msg)){
-          case INPUT_HALT:
           case INPUT_STOP:
+          case INPUT_HALT:
             Serial.println(">> halt");
             Halt();
             moveState = INPUT_NONE;
             break;
-            
-          case INPUT_FORWARD:
+          
           case INPUT_GO:
+          case INPUT_FORWARD:
             Serial.println(">> forward");
             MoveForward();
             moveState = INPUT_FORWARD;
@@ -202,8 +202,8 @@ void ReadCommand(){
             TurnLeft();
             moveState = INPUT_NONE;
             break;
-            
-          case INPUT_GOTOPOINT:
+          
+          
           case INPUT_GOTO:
             Serial.print(">> GoTo(");Serial.print(valx);Serial.print(",");Serial.print(valy);Serial.println(")");
             GoToPoint(valx, valy);
@@ -212,7 +212,7 @@ void ReadCommand(){
           default: //if all else fails...
             Serial.print(">> ");
             //Serial.println(user_input);
-            Serial.print("INVALID INPUT: >> "); Serial.println(user_input);
+            Serial.print("INVALID INPUT: >> "); Serial.println(user_input);Serial.println(msg);
             break;
         }
      //============================================================================================//
@@ -274,7 +274,7 @@ void loop(){
   Serial.print(",");
   Serial.print(ycoord);
   Serial.println(")");*/
-  user_input = "";
+  //user_input = "";
 }
 
 //*************************************************   StartUp Routine   ***********************************************
