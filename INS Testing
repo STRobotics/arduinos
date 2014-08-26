@@ -93,17 +93,24 @@ void loop()
   if (gx < 1 && gx > -1){gx = 0;}
   if (gy < 1 && gy > -1){gy = 0;}
   if (gz < 1 && gz > -1){gz = 0;}
+  gx = gx * 0.0174532925;                                          //Converts from degrees per second to radians per second.
+  gy = gy * 0.0174532925;
+  gz = gz * 0.0174532925;
   updateIMU(gx, gy, gz, ax, ay, az);
-  Serial.print(ax); Serial.print("\t");
+  /*Serial.print(ax); Serial.print("\t");
   Serial.print(ay); Serial.print("\t");
   Serial.print(az); Serial.print("\t");
   Serial.print(gx); Serial.print("\t");
   Serial.print(gy); Serial.print("\t");
-  Serial.print(gz); Serial.println("\t");
+  Serial.print(gz); Serial.println("\t");*/
+  Serial.print(q0); Serial.print("\t");
+  Serial.print(q1); Serial.print("\t");
+  Serial.print(q2); Serial.print("\t");
+  Serial.print(q3); Serial.println("\t");
   /*get_ForwardVector(q0, q1, q2, q3);
   get_UpVector(q0, q1, q2, q3);
-  get_RightVector(q0, q1, q2, q3);
-  Serial.print(FV1); Serial.print("\t");
+  get_RightVector(q0, q1, q2, q3);*/
+  /*Serial.print(FV1); Serial.print("\t");
   Serial.print(FV2); Serial.print("\t");
   Serial.print(FV3); Serial.print("\t");
   Serial.print(UV1); Serial.print("\t");
