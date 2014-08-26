@@ -59,13 +59,6 @@ float encoderDist; //The steps gained from the encoder translated into units or 
 //****************************************   Setup and Library    *****************************************************
 //*********************************************************************************************************************
 
-void setup() {
-  Serial.begin(115200);                                            // set up Serial library at 9600 bps
-  Serial.println("Serial Started");
-  attachInterrupt(0, leftCount, CHANGE);
-  attachInterrupt(1, rightCount, CHANGE);
-  StartUp();
-}
 
 //-----------LookupTable------------//
                                     //This allows ReadCommand to find the appropriate enum for the command
@@ -81,9 +74,9 @@ const String lookup_table[] = {
   "right",
   "left",
   //Complex Commands
-  "goto", "gotopoint",
+  "goto",
   //alternates for halt and forward
-  "stop", "go",
+  "stop", "go"
 };
 
 enum inputs{                      //Make sure each term is in the proper 'slot' to match with its table
@@ -100,7 +93,6 @@ enum inputs{                      //Make sure each term is in the proper 'slot' 
   INPUT_LEFT,
   
   //Complex Commands
-  INPUT_GOTOPOINT,
   INPUT_GOTO,
   
   //alternates
@@ -117,6 +109,7 @@ boolean loopStarted = false;
 
 String ard_id = "1"; // This robot's Name tag
 String user_input, com_id, msg, val, valx, valy; //This will be used to parse instructions.
+boolean stringComplete = false;
 
 int moveSpeed = 200;
 
@@ -127,7 +120,15 @@ double errorbufPos = .02;
 double errorbufAng = .2;
 int moveState = INPUT_NONE;
 
-
+//--------------------------------------------------------------------------//
+void setup() {
+  Serial.begin(9600);                                            // set up Serial library at 9600 bps
+  user_input.reserve(1000);
+  Serial.println("Serial Started");
+  attachInterrupt(0, leftCount, CHANGE);
+  attachInterrupt(1, rightCount, CHANGE);
+  StartUp();
+}
 //***************************************************************************************//
 //*********************************** COMMANDS ******************************************//
 //***************************************************************************************//
@@ -137,7 +138,7 @@ int moveState = INPUT_NONE;
 
 void ReadCommand(){
     if(Serial.available() > 0){
-      user_input = "";
+    user_input = "";
     while(Serial.available()){
       user_input = user_input + char(Serial.read());
       delay(25);
@@ -157,7 +158,7 @@ void ReadCommand(){
       case INPUT_STOP:
         Serial.println(">> stop (Global)");
         Halt();
-        moveState = INPUT_NONE;
+        moveState = INPUT_HALT;
         break;
       
       case INPUT_RESET:
@@ -175,7 +176,7 @@ void ReadCommand(){
           case INPUT_HALT:
             Serial.println(">> halt");
             Halt();
-            moveState = INPUT_NONE;
+            moveState = INPUT_HALT;
             break;
           
           case INPUT_GO:
@@ -202,10 +203,10 @@ void ReadCommand(){
             TurnLeft();
             moveState = INPUT_NONE;
             break;
-          
-          
+
           case INPUT_GOTO:
             Serial.print(">> GoTo(");Serial.print(valx);Serial.print(",");Serial.print(valy);Serial.println(")");
+            moveState = INPUT_GOTO;
             GoToPoint(valx, valy);
             break;
             
@@ -225,6 +226,7 @@ int lookup(String input_str){
   input_str.toLowerCase();
   for(int i=0; i!= available_input_str; i++){
       if(input_str == lookup_table[i]){
+      Serial.print("i value");Serial.println(i);
       return i;
     }
   }
@@ -352,7 +354,8 @@ void GoToPoint(String gtpx, String gtpy){
 
     ReadCommand();
     GyroAngleUpdate();
-    if((com_id == ard_id && msg == "stop") || (com_id == ard_id && msg == "halt") || user_input == "stop" || user_input == "halt"){
+    //if((com_id == ard_id && msg == "stop") || (com_id == ard_id && msg == "halt") || user_input == "stop" || user_input == "halt"){
+    if(moveState == INPUT_HALT){  
       break;
     }
     /*Serial.print("eulerz: ");Serial.print(anglez); Serial.print("\t"); 
