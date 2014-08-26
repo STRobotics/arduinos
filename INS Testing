@@ -25,6 +25,8 @@ volatile float q0 = 1.0f, q1 = 0.0f, q2 = 0.0f, q3 = 0.0f;
 volatile float integralFBx = 0.0f, integralFBy = 0.0f, integralFBz = 0.0f;
 float FV1, FV2, FV3, UV1, UV2, UV3, RV1, RV2, RV3;
 
+double x = 0, y = 0, z = 0;
+
 void setup()
 {
   Serial.begin(9600);                                              //Set up Serial library at 9600 bps.
@@ -97,6 +99,9 @@ void loop()
   gy = gy * 0.0174532925;
   gz = gz * 0.0174532925;
   updateIMU(gx, gy, gz, ax, ay, az);
+  x = atan((2*(q0 * q1 + q2 * q3)/(q0 * q0 - q1 * q1 - q2 * q2 + q3 * q3)));
+  y = -asin(2*(q1 * q3 - q0 * q2));
+  z = atan((2*(q0 * q3 + q1 * q2)/(q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3)));
   /*Serial.print(ax); Serial.print("\t");
   Serial.print(ay); Serial.print("\t");
   Serial.print(az); Serial.print("\t");
@@ -106,7 +111,10 @@ void loop()
   Serial.print(q0); Serial.print("\t");
   Serial.print(q1); Serial.print("\t");
   Serial.print(q2); Serial.print("\t");
-  Serial.print(q3); Serial.println("\t");
+  Serial.print(q3); Serial.print("\t\t");
+  Serial.print(x); Serial.print("\t");
+  Serial.print(y); Serial.print("\t");
+  Serial.print(z); Serial.println("\t");
   /*get_ForwardVector(q0, q1, q2, q3);
   get_UpVector(q0, q1, q2, q3);
   get_RightVector(q0, q1, q2, q3);*/
