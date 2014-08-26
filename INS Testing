@@ -37,14 +37,14 @@ void setup()
     Serial.println("Failed to autodetect gyro.");
     while (1);
   }
-  if(!accel.begin())
+  if(!accel.begin())                                               //Accelerometer not detected.
   {
     Serial.println("Failed to autodetect accelerometer.");
     while(1);
   }
   accel.setRange(ADXL345_RANGE_16_G);
   
-  delay(2500);
+  delay(2500);                                                     //Delay reduces startup fluctuation from sensors.
   
   sensors_event_t event;
   accel.getEvent(&event);
@@ -54,9 +54,9 @@ void setup()
   
   Serial.println("Beginning Calibration.");
   
-  for (int i = 0; i <= 2000; i++)
-  {
-    sensors_event_t event;
+  for (int i = 0; i <= 2000; i++)                                  //Calibration of gyroscope and accelerometer.
+  {                                                                //Data is recorded and then averaged to find
+    sensors_event_t event;                                         //the error.
     accel.getEvent(&event);
     
     eax += event.acceleration.x;
@@ -73,7 +73,7 @@ void setup()
   eax = eax/2000; eay = eay/2000; eaz = eaz/2000;
   egx = egx/2000; egy = egy/2000; egz = egz/2000;
   
-  Serial.print(eax); Serial.print("\t");
+  Serial.print(eax); Serial.print("\t");                           //Printing the error on each axis.
   Serial.print(eay); Serial.print("\t");
   Serial.print(eaz); Serial.print("\t");
   Serial.print(egx); Serial.print("\t");
@@ -87,9 +87,9 @@ void loop()
 {
   AccelRead();
   GyroAngleUpdate();
-  if (ax < 1 && ax > -1){ax = 0;}
-  if (ay < 1 && ay > -1){ay = 0;}
-  if (az < 1 && az > -1){az = 0;}
+  if (ax < 1 && ax > -1){ax = 0;}                                  //If data is not over the fluctuation range,
+  if (ay < 1 && ay > -1){ay = 0;}                                  //sets to zero to prevent error from accumulating
+  if (az < 1 && az > -1){az = 0;}                                  //during calculations.
   if (gx < 1 && gx > -1){gx = 0;}
   if (gy < 1 && gy > -1){gy = 0;}
   if (gz < 1 && gz > -1){gz = 0;}
