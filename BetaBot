@@ -122,7 +122,7 @@ int moveState = INPUT_NONE;
 
 //--------------------------------------------------------------------------//
 void setup() {
-  Serial.begin(9600);                                            // set up Serial library at 9600 bps
+  Serial.begin(115200);                                            // set up Serial library at 9600 bps
   user_input.reserve(1000);
   Serial.println("Serial Started");
   attachInterrupt(0, leftCount, CHANGE);
@@ -137,11 +137,17 @@ void setup() {
 //Very important.
 
 void ReadCommand(){
-    if(Serial.available() > 0){
+    
     user_input = "";
     while(Serial.available()){
-      user_input = user_input + char(Serial.read());
       delay(25);
+      if(Serial.available() > 0){
+        user_input = user_input + char(Serial.read());
+      }
+    }
+    
+    if(user_input.length() <= 0){
+      return;
     }
     
     ParseData();
@@ -176,37 +182,37 @@ void ReadCommand(){
           case INPUT_HALT:
             Serial.println(">> halt");
             Halt();
-            moveState = INPUT_HALT;
+            //moveState = INPUT_HALT;
             break;
           
           case INPUT_GO:
           case INPUT_FORWARD:
             Serial.println(">> forward");
             MoveForward();
-            moveState = INPUT_FORWARD;
+            //moveState = INPUT_FORWARD;
             break;
             
           case INPUT_BACK:
             Serial.println(">> back");
             MoveBackward();
-            moveState = INPUT_BACK;
+            //moveState = INPUT_BACK;
             break;
             
           case INPUT_RIGHT:
             Serial.println(">> right");
             TurnRight();
-            moveState = INPUT_NONE;
+            //moveState = INPUT_NONE;
             break;
             
           case INPUT_LEFT:
             Serial.println(">> left");
             TurnLeft();
-            moveState = INPUT_NONE;
+            //moveState = INPUT_NONE;
             break;
 
           case INPUT_GOTO:
             Serial.print(">> GoTo(");Serial.print(valx);Serial.print(",");Serial.print(valy);Serial.println(")");
-            moveState = INPUT_GOTO;
+            //moveState = INPUT_GOTO;
             GoToPoint(valx, valy);
             break;
             
@@ -218,7 +224,6 @@ void ReadCommand(){
         }
      //============================================================================================//
     }
-  }
 }
 
 int lookup(String input_str){
@@ -268,7 +273,7 @@ void loop(){
   PositionAdjust();
   encoderL = 0;
   encoderR = 0;
- /* Serial.print("eulerz: ");
+  /*Serial.print("eulerz: ");
   Serial.print(anglez); 
   Serial.print("\t"); 
   Serial.print("(");
@@ -276,7 +281,6 @@ void loop(){
   Serial.print(",");
   Serial.print(ycoord);
   Serial.println(")");*/
-  //user_input = "";
 }
 
 //*************************************************   StartUp Routine   ***********************************************
@@ -358,18 +362,18 @@ void GoToPoint(String gtpx, String gtpy){
     if(moveState == INPUT_HALT){  
       break;
     }
-    /*Serial.print("eulerz: ");Serial.print(anglez); Serial.print("\t"); 
-    Serial.print("targetAngle: "); Serial.print(targetHeadingEuler);
+    Serial.print("eulerz: ");
+    Serial.print(anglez); 
+    Serial.print("\t"); 
+    Serial.print(targetHeadingEuler);
     Serial.print("\t");
-    Serial.print("Current Location: (");
     Serial.print(xcoord);
     Serial.print(",");
     Serial.print(ycoord);
-    Serial.print(") | Target Location: (");
     Serial.print(targetPosx);
     Serial.print(",");
     Serial.print(targetPosy);
-    Serial.println(")");*/
+    Serial.println(")");
 
     if((radAnglez <= targetHeading + errorbufAng) && (radAnglez >= targetHeading - errorbufAng)){ //heading within range
       MoveForward();
@@ -478,6 +482,7 @@ void SpeedChange(){
 
 void MoveForward(){
   // Serial.println("Moving Forward Left Tilt");
+  moveState = INPUT_FORWARD;
   leftMotor->setSpeed(moveSpeed);
   rightMotor->setSpeed(moveSpeed);
   leftMotor ->run(BACKWARD); 
@@ -485,6 +490,7 @@ void MoveForward(){
 }
 
 void MoveBackward(){
+  moveState = INPUT_BACK;
   // Serial.println("Moving Backward Right Tilt");
   leftMotor->setSpeed(moveSpeed);
   rightMotor->setSpeed(moveSpeed);
@@ -493,6 +499,7 @@ void MoveBackward(){
 }
 
 void TurnRight(){
+  moveState = INPUT_RIGHT;
   //  Serial.println("turning Right");
   leftMotor->setSpeed(moveSpeed);
   rightMotor->setSpeed(moveSpeed); 
@@ -502,6 +509,7 @@ void TurnRight(){
 }
 
 void TurnLeft(){
+  moveState = INPUT_LEFT;
   // Serial.println("turning Left");
   leftMotor->setSpeed(moveSpeed);
   rightMotor->setSpeed(moveSpeed);
@@ -510,6 +518,7 @@ void TurnLeft(){
 }
 
 void Halt(){
+  moveState = INPUT_HALT;
     //uint8_t i = moveSpeed; // Used to lerp the braking motion
     /*for(i=moveSpeed; i!=0; i--){
      leftMotor->setSpeed(i);
