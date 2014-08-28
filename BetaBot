@@ -124,7 +124,7 @@ int moveState = INPUT_NONE;
 void setup() {
   Serial.begin(115200);                                            // set up Serial library at 9600 bps
   user_input.reserve(1000);
-  Serial.println("Serial Started");
+  Serial.println(F("Serial Started"));
   attachInterrupt(0, leftCount, CHANGE);
   attachInterrupt(1, rightCount, CHANGE);
   StartUp();
@@ -137,7 +137,6 @@ void setup() {
 //Very important.
 
 void ReadCommand(){
-    
     user_input = "";
     while(Serial.available()){
       delay(25);
@@ -153,16 +152,16 @@ void ReadCommand(){
     ParseData();
     switch (lookup(user_input)){ //looks at whole user_input for recognized commands
       case INPUT_START:
-        Serial.println(">> start");
+        Serial.println(F(">> start"));
         /*if(!loopStarted){
           StartUp();
           loopStarted = true;
         }*/
-        Serial.println("depricated command, lol");
+        Serial.println(F("depricated command, lol"));
         break;
       
       case INPUT_STOP:
-        Serial.println(">> stop (Global)");
+        Serial.println(F(">> stop (Global)"));
         Halt();
         moveState = INPUT_HALT;
         break;
@@ -180,50 +179,51 @@ void ReadCommand(){
         switch (lookup(msg)){
           case INPUT_STOP:
           case INPUT_HALT:
-            Serial.println(">> halt");
+            Serial.println(F(">> halt"));
             Halt();
             //moveState = INPUT_HALT;
             break;
           
           case INPUT_GO:
           case INPUT_FORWARD:
-            Serial.println(">> forward");
+            Serial.println(F(">> forward"));
             MoveForward();
             //moveState = INPUT_FORWARD;
             break;
             
           case INPUT_BACK:
-            Serial.println(">> back");
+            Serial.println(F(">> back"));
             MoveBackward();
             //moveState = INPUT_BACK;
             break;
             
           case INPUT_RIGHT:
-            Serial.println(">> right");
+            Serial.println(F(">> right"));
             TurnRight();
             //moveState = INPUT_NONE;
             break;
             
           case INPUT_LEFT:
-            Serial.println(">> left");
+            Serial.println(F(">> left"));
             TurnLeft();
             //moveState = INPUT_NONE;
             break;
 
           case INPUT_GOTO:
-            Serial.print(">> GoTo(");Serial.print(valx);Serial.print(",");Serial.print(valy);Serial.println(")");
-            //moveState = INPUT_GOTO;
+            Serial.print(F(">> GoTo("));Serial.print(valx);Serial.print(F(","));Serial.print(valy);Serial.println(F(")"));
+            moveState = INPUT_GOTO;
             GoToPoint(valx, valy);
             break;
             
           default: //if all else fails...
-            Serial.print(">> ");
+            Serial.print(F(">> "));
             //Serial.println(user_input);
-            Serial.print("INVALID INPUT: >> "); Serial.println(user_input);Serial.println(msg);
+            Serial.print(F("INVALID INPUT: >> ")); Serial.println(user_input);Serial.println(msg);
             break;
         }
      //============================================================================================//
     }
+    Serial.flush();
 }
 
 int lookup(String input_str){
@@ -317,7 +317,7 @@ void StartUp(){
   rightMotor->setSpeed(200);
   
   //-----------------------StartUp Finished--------------------------//
-  Serial.println("AlphaBot Initiated.");
+  Serial.println(F("AlphaBot Initiated."));
   delay(500);
 
 }
@@ -352,28 +352,28 @@ void GoToPoint(String gtpx, String gtpy){
     targetHeadingEuler -= 360;
   }
   targetHeading = targetHeadingEuler*(pi/180);
-
   //while (targetPosx != xcoord && targetPosy != ycoord){
     while ( (xcoord + errorbufPos <= targetPosx || xcoord - errorbufPos >= targetPosx) && (ycoord + errorbufPos <= targetPosy || ycoord - errorbufPos >= targetPosy)){
 
     ReadCommand();
     GyroAngleUpdate();
     //if((com_id == ard_id && msg == "stop") || (com_id == ard_id && msg == "halt") || user_input == "stop" || user_input == "halt"){
-    if(moveState == INPUT_HALT){  
+    if(moveState == INPUT_HALT){
+      Serial.println("Exiting GTP mode"); 
       break;
     }
-    Serial.print("eulerz: ");
+    /*Serial.print(F("eulerz: "));
     Serial.print(anglez); 
-    Serial.print("\t"); 
+    Serial.print(F("\t")); 
     Serial.print(targetHeadingEuler);
-    Serial.print("\t");
+    Serial.print(F("\t"));
     Serial.print(xcoord);
-    Serial.print(",");
+    Serial.print(F(","));
     Serial.print(ycoord);
     Serial.print(targetPosx);
-    Serial.print(",");
+    Serial.print(F(","));
     Serial.print(targetPosy);
-    Serial.println(")");
+    Serial.println(F(")"));*/
 
     if((radAnglez <= targetHeading + errorbufAng) && (radAnglez >= targetHeading - errorbufAng)){ //heading within range
       MoveForward();
@@ -390,6 +390,9 @@ void GoToPoint(String gtpx, String gtpy){
     
   }
   Halt();
+  moveState = INPUT_NONE;
+  Serial.print(F("Point Reached :")); 
+  Serial.print(xcoord); Serial.print(",\t"); Serial.println(ycoord);
 }
 
 void PositionAdjust(){
@@ -409,13 +412,13 @@ void PositionAdjust(){
 
 void Reset(){
     Halt();
-    Serial.println("Resetting...");
+    Serial.println(F("Resetting..."));
     Serial.println();
 
     Serial.end();
     delay(1000);
     Serial.begin(115200);
-    Serial.println("reset the serial!");
+    Serial.println(F("reset the serial!"));
     //loopStarted = false;
     //printStartup = true;
     StartUp();
@@ -427,8 +430,8 @@ void Reset(){
 void Close(){
     user_input == "";
     Halt();
-    Serial.println("Serial Connection Severed!");
-    Serial.println("Goodbye!");
+    Serial.println(F("Serial Connection Severed!"));
+    Serial.println(F("Goodbye!"));
     Serial.end();
 }
 
@@ -573,9 +576,8 @@ void GyroAngleUpdate(){
   }
   
   radAnglez = anglez * (pi/180);
-  /*Serial.print("anglez: ");Serial.print(anglez);
-   Serial.print("\t"); Serial.print("gz: "); Serial.print(gz);
-   Serial.print("\t"); Serial.print("converted anglez: "); Serial.println( (anglez * (pi/180)) );*/
+  //Serial.print(F("anglez: "));Serial.print(anglez);
+  //Serial.print(F("\tconverted anglez: ")); Serial.println( (anglez * (pi/180)) );
   //iRValueLeft = iRRangeLeft.distance();                          //Reads and stores range data.
   //iRValueCenter = iRRangeCenter.distance();
 }
