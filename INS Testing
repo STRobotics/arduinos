@@ -82,9 +82,9 @@ void loop()
 {
   AccelRead();
   GyroAngleUpdate();
-  if (ax < 0.15 && ax > -0.15){ax = 0;}                            //If data is not over the fluctuation range,
-  if (ay < 0.15 && ay > -0.15){ay = 0;}                            //sets to zero to prevent error from accumulating
-  if (az < 0.15 && az > -0.15){az = 0;}                            //during calculations.
+  if (ax < 0.2 && ax > -0.2){ax = 0;}                            //If data is not over the fluctuation range,
+  if (ay < 0.2 && ay > -0.2){ay = 0;}                            //sets to zero to prevent error from accumulating
+  if (az < 0.2 && az > -0.2){az = 0;}                            //during calculations.
   if (gx < 1 && gx > -1){gx = 0;}
   if (gy < 1 && gy > -1){gy = 0;}
   if (gz < 1 && gz > -1){gz = 0;}
