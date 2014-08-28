@@ -46,17 +46,9 @@ void setup()
   }
   accel.setRange(ADXL345_RANGE_16_G);
   
-  delay(2500);                                                     //Delay reduces startup fluctuation from sensors.
-  
-  sensors_event_t event;
-  accel.getEvent(&event);
-  gyro.read();
-  
-  delay(2500);
-  
   Serial.println("Beginning Calibration.");
   
-  for (int i = 0; i <= 2000; i++)                                  //Calibration of gyroscope and accelerometer.
+  for (int i = 0; i <= 1000; i++)                                  //Calibration of gyroscope and accelerometer.
   {                                                                //Data is recorded and then averaged to find
     sensors_event_t event;                                         //the error.
     accel.getEvent(&event);
@@ -70,10 +62,11 @@ void setup()
     egx += (int)gyro.data.x;
     egy += (int)gyro.data.y;
     egz += (int)gyro.data.z;
+    delay(10);
   }
   
-  eax = eax/2000; eay = eay/2000; eaz = eaz/2000;
-  egx = egx/2000; egy = egy/2000; egz = egz/2000;
+  eax = eax/1000; eay = eay/1000; eaz = eaz/1000;
+  egx = egx/1000; egy = egy/1000; egz = egz/1000;
   
   Serial.print(eax); Serial.print("\t");                           //Printing the error on each axis.
   Serial.print(eay); Serial.print("\t");
@@ -89,9 +82,9 @@ void loop()
 {
   AccelRead();
   GyroAngleUpdate();
-  if (ax < 1 && ax > -1){ax = 0;}                                  //If data is not over the fluctuation range,
-  if (ay < 1 && ay > -1){ay = 0;}                                  //sets to zero to prevent error from accumulating
-  if (az < 1 && az > -1){az = 0;}                                  //during calculations.
+  if (ax < 0.15 && ax > -0.15){ax = 0;}                            //If data is not over the fluctuation range,
+  if (ay < 0.15 && ay > -0.15){ay = 0;}                            //sets to zero to prevent error from accumulating
+  if (az < 0.15 && az > -0.15){az = 0;}                            //during calculations.
   if (gx < 1 && gx > -1){gx = 0;}
   if (gy < 1 && gy > -1){gy = 0;}
   if (gz < 1 && gz > -1){gz = 0;}
