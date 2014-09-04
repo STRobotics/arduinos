@@ -10,27 +10,29 @@ Adafruit_L3GD20 gyro;
 double  gx = 0,  gy = 0,  gz = 0;                                  //Gyroscope, in degrees per second.
 double egx = 0, egy = 0, egz = 0;                                  //Gyroscope error.
 double pgx = 0, pgy = 0, pgz = 0;                                  //Previous gyroscope reading.
-unsigned long ctg = 0;                                             //Current time interval of gyroscope, in milliseconds.
-unsigned long ptg = 0;                                             //Previous time interval of gyroscope, in milliseconds.
+double agx = 0, agy = 0, agz = 0;                                  //Accumulated gyroscope reading.
+int    lgx = 0, lgy = 0, lgz = 0;                                  //Accumulation loop control gyroscope.
+double ctg = 0;                                                    //Current time interval of gyroscope, in milliseconds.
+double ptg = 0;                                                    //Previous time interval of gyroscope, in milliseconds.
 
 Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
 
 double  ax = 0,  ay = 0,  az = 0;                                  //Accelerometer, in meters per second squared.
+double grx = 0, gry = 0, grz = 0;                                  //Gravity, in meters per second squared.
 double eax = 0, eay = 0, eaz = 0;                                  //Accelerometer error.
 double pax = 0, pay = 0, paz = 0;                                  //Previous accelerometer reading.
 double aax = 0, aay = 0, aaz = 0;                                  //Accumulated accelerometer reading.
-int    alc = 0;                                                    //Accumulation loop control.
+int    lax = 0, lay = 0, laz = 0;                                  //Accumulation loop control accelerometer.
 double cta = 0;                                                    //Current time interval of accelerometer, in milliseconds.
 double pta = 0;                                                    //Previous time interval of accelerometer, in milliseconds.
 
 double  vx = 0,  vy = 0,  vz = 0;                                  //Velocity, in meters par second.
-double pvx = 0, pvy = 0, pvz = 0;                                  //Previous velocity reading
 
 double  px = 0,  py = 0,  pz = 0;                                  //Position, in meters.
 
 void setup()
 {
-  Serial.begin(115200);                                              //Set up Serial library at 9600 bps.
+  Serial.begin(9600);                                              //Set up Serial library at 9600 bps.
   Serial.println("Serial Started");
   Serial.println("Beginning Setup.");
   Wire.begin();
@@ -68,6 +70,7 @@ void setup()
   
   eax = eax/1000; eay = eay/1000; eaz = eaz/1000;
   egx = egx/1000; egy = egy/1000; egz = egz/1000;
+  gz  = eaz;
   
   Serial.print(eax); Serial.print("\t");                           //Printing the error on each axis.
   Serial.print(eay); Serial.print("\t");
@@ -89,12 +92,7 @@ void loop()
   GyroAngleUpdate();
   ptg = ctg;
   ctg = (micros())/1000000.000000000;
-  if (ax <= 0.2 && ax >= -0.2){ax = 0;}                                //If data is not over the fluctuation range,
-  if (ay <= 0.2 && ay >= -0.2){ay = 0;}                                //sets to zero to prevent error from accumulating
-  if (az <= 0.2 && az >= -0.2){az = 0;}                                //during calculations.
-  if (gx <= 1 && gx >= -1){gx = 0;}
-  if (gy <= 1 && gy >= -1){gy = 0;}
-  if (gz <= 1 && gz >= -1){gz = 0;}
+  GravityCorrection();
   PositionUpdate();
   Serial.print(ax); Serial.print("\t");
   Serial.print(ay); Serial.print("\t");
@@ -106,12 +104,16 @@ void loop()
 
 void AccelRead()
 {
-  sensors_event_t event; 					                                  //Read accelerometer data.
+  sensors_event_t event; 					     //Read accelerometer data.
   accel.getEvent(&event);
   
   ax = event.acceleration.x - eax;
   ay = event.acceleration.y - eay;
   az = event.acceleration.z - eaz;
+  
+  if (ax <= 0.2 && ax >= -0.2){ax = 0;}
+  if (ay <= 0.2 && ay >= -0.2){ax = 0;}
+  if (az <= 0.2 && az >= -0.2){ax = 0;}
 }
 
 void GyroAngleUpdate()
@@ -122,9 +124,40 @@ void GyroAngleUpdate()
    gz = (int)gyro.data.z - egz;
 }
 
+void GravityCorrection()
+{
+  agx += gx * (ctg - ptg);
+  agy += gy * (ctg - ptg);
+  agz += gz * (ctg - ptg);
+  
+  if (agx <=  0){agx += 360;}
+  if (agx > 360){agx -= 360;}
+  if (agy <=  0){agy += 360;}
+  if (agy > 360){agy -= 360;}
+  if (agz <=  0){agz += 360;}
+  if (agz > 360){agz -= 360;}
+  
+  
+}
+
 void PositionUpdate()
 {
-  pvx = vx; pvy = vy; pvz = vz;
+  if (ax <= 0.3 && ax >= -0.3)
+  {
+    lax++;
+    if (lax > 5){vx = 0; lax = 0;}
+  }
+  if (ay <= 0.3 && ay >= -0.3)
+  {
+    lay++;
+    if (lay > 5){vy = 0; lay = 0;}
+  }
+  if (az <= 0.3 && az >= -0.3)
+  {
+    laz++;
+    if (laz > 5){vz = 0; laz = 0;}
+  }
+  
   vx += ((ax + pax)/2) * (cta - pta);
   vy += ((ay + pay)/2) * (cta - pta);
   vz += ((az + paz)/2) * (cta - pta);
