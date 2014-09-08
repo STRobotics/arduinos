@@ -137,6 +137,20 @@ void GravityCorrection()
   if (agz <=  0){agz += 360;}
   if (agz > 360){agz -= 360;}
   
+  if (agx <= 360 && agx >  90){porportion = }
+  if (agx <= 90  && agx > 180){}
+  if (agx <= 180 && agx > 270){}
+  if (agx <= 270 && agx > 360){}
+  
+  if (agy <= 360 && agy >  90){}
+  if (agy <= 90  && agy > 180){}
+  if (agy <= 180 && agy > 270){}
+  if (agy <= 270 && agy > 360){}
+  
+  if (agz <= 360 && agz >  90){}
+  if (agz <= 90  && agz > 180){}
+  if (agz <= 180 && agz > 270){}
+  if (agz <= 270 && agz > 360){}
   
 }
 
